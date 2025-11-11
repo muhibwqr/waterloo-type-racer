@@ -47,6 +47,105 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          average_wpm: number | null
+          best_accuracy: number | null
+          best_wpm: number | null
+          created_at: string | null
+          global_rank: number | null
+          id: string
+          tier: string | null
+          time_spent_seconds: number | null
+          total_tests: number | null
+          updated_at: string | null
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          average_wpm?: number | null
+          best_accuracy?: number | null
+          best_wpm?: number | null
+          created_at?: string | null
+          global_rank?: number | null
+          id: string
+          tier?: string | null
+          time_spent_seconds?: number | null
+          total_tests?: number | null
+          updated_at?: string | null
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          average_wpm?: number | null
+          best_accuracy?: number | null
+          best_wpm?: number | null
+          created_at?: string | null
+          global_rank?: number | null
+          id?: string
+          tier?: string | null
+          time_spent_seconds?: number | null
+          total_tests?: number | null
+          updated_at?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
+      typing_tests: {
+        Row: {
+          accuracy: number
+          consistency: number | null
+          correct_chars: number
+          created_at: string | null
+          extra_chars: number | null
+          id: string
+          incorrect_chars: number
+          language: string | null
+          missed_chars: number | null
+          raw_wpm: number
+          test_duration: number | null
+          test_mode: string
+          user_id: string | null
+          word_count: number | null
+          wpm: number
+        }
+        Insert: {
+          accuracy: number
+          consistency?: number | null
+          correct_chars: number
+          created_at?: string | null
+          extra_chars?: number | null
+          id?: string
+          incorrect_chars: number
+          language?: string | null
+          missed_chars?: number | null
+          raw_wpm: number
+          test_duration?: number | null
+          test_mode: string
+          user_id?: string | null
+          word_count?: number | null
+          wpm: number
+        }
+        Update: {
+          accuracy?: number
+          consistency?: number | null
+          correct_chars?: number
+          created_at?: string | null
+          extra_chars?: number | null
+          id?: string
+          incorrect_chars?: number
+          language?: string | null
+          missed_chars?: number | null
+          raw_wpm?: number
+          test_duration?: number | null
+          test_mode?: string
+          user_id?: string | null
+          word_count?: number | null
+          wpm?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -15,49 +15,47 @@ export default {
     extend: {
       colors: {
         border: "hsl(var(--border))",
-        "border-subtle": "hsl(var(--border-subtle))",
         input: "hsl(var(--input))",
-        "input-border": "hsl(var(--input-border))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
-        "background-elevated": "hsl(var(--background-elevated))",
-        "background-card": "hsl(var(--background-card))",
-        "background-section": "hsl(var(--background-section))",
-        "background-hover": "hsl(var(--background-hover))",
         foreground: "hsl(var(--foreground))",
-        "foreground-secondary": "hsl(var(--foreground-secondary))",
-        "foreground-muted": "hsl(var(--foreground-muted))",
-        gold: "hsl(var(--gold))",
-        "gold-foreground": "hsl(var(--gold-foreground))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          foreground: "hsl(var(--primary-foreground))"
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          foreground: "hsl(var(--secondary-foreground))"
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          foreground: "hsl(var(--destructive-foreground))"
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          foreground: "hsl(var(--muted-foreground))"
         },
         accent: {
           DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          foreground: "hsl(var(--accent-foreground))"
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          foreground: "hsl(var(--popover-foreground))"
         },
         card: {
           DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-          elevated: "hsl(var(--card-elevated))",
+          foreground: "hsl(var(--card-foreground))"
         },
+        chart: {
+          "1": "hsl(var(--chart-1))",
+          "2": "hsl(var(--chart-2))",
+          "3": "hsl(var(--chart-3))",
+          "4": "hsl(var(--chart-4))",
+          "5": "hsl(var(--chart-5))"
+        },
+        "text-error": "hsl(var(--text-error))",
+        "text-correct": "hsl(var(--text-correct))",
       },
       borderRadius: {
         xl: "var(--radius-xl)",
