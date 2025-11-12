@@ -20,7 +20,8 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const emailValid = email.endsWith("@uwaterloo.ca");
+  const normalizedEmail = email.trim();
+  const emailValid = normalizedEmail.toLowerCase().endsWith("@uwaterloo.ca");
   const usernameValid = username.length >= 3 && username.length <= 20 && /^[a-zA-Z0-9_]+$/.test(username);
   const passwordValid = password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
@@ -57,7 +58,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
 
     setIsLoading(true);
 
-    const { error } = await signUp(email, password, username);
+    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username);
 
     if (error) {
       if (error.message.includes("already registered")) {
