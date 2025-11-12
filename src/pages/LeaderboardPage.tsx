@@ -1,21 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, Trophy, Award, Medal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
-
-type LeaderboardRow = {
-  id: string;
-  userId: string;
-  email: string;
-  wpm: number;
-  accuracy: number;
-  program: string | null;
-  faculty: string | null;
-  tier?: string | null;
-};
+import { subDays, subMonths, subWeeks } from "date-fns";
+import { computeTierFromWpm } from "@/lib/stats";
 
 type DisplayRow = {
   rank: number;
@@ -25,6 +16,7 @@ type DisplayRow = {
   program: string | null;
   tier: string | null;
   isPlaceholder?: boolean;
+  createdAt: string | null;
 };
 
 const totalSlots = 23;
@@ -35,50 +27,122 @@ const LeaderboardPage = () => {
   const [search, setSearch] = useState("");
   const [timeFilter, setTimeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [rows, setRows] = useState<DisplayRow[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadLeaderboard = async () => {
-      setLoading(true);
-      setFetchError(null);
-      const { data, error } = await supabase
-        .from("leaderboard")
-        .select("*")
-        .order("wpm", { ascending: false })
-        .limit(totalSlots);
+  const loadLeaderboard = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
 
-      if (error) {
-        console.error("Failed to fetch leaderboard entries", error);
-        setFetchError("We couldn't load the leaderboard right now.");
-        setRows([]);
-      } else {
-        const safeData =
-          data?.map((entry) => ({
-            id: entry.id ?? `${entry.user_id}-${entry.email}`,
-            userId: entry.user_id,
-            email: entry.email,
-            wpm: entry.wpm,
-            accuracy: entry.accuracy,
-            program: entry.program,
-            faculty: entry.faculty,
-            tier: null,
-          })) ?? [];
-        setRows(safeData);
-      }
+    const { data, error } = await supabase
+      .from("typing_tests")
+      .select("user_id, wpm, accuracy, created_at")
+      .order("wpm", { ascending: false })
+      .limit(200);
+
+    if (error) {
+      console.error("Failed to fetch leaderboard entries", error);
+      setFetchError("We couldn't load the leaderboard right now.");
+      setRows([]);
       setLoading(false);
-    };
+      return;
+    }
 
-    void loadLeaderboard();
+    const uniqueByUser = new Map<string, { wpm: number; accuracy: number; created_at: string | null }>();
+    const anonymousEntries: DisplayRow[] = [];
+
+    data?.forEach((entry) => {
+      if (!entry.user_id) {
+        anonymousEntries.push({
+          rank: 0,
+          name: "Anonymous Warrior",
+          wpm: entry.wpm,
+          accuracy: entry.accuracy,
+          program: null,
+          tier: null,
+          createdAt: entry.created_at,
+        });
+        return;
+      }
+
+      if (!uniqueByUser.has(entry.user_id)) {
+        uniqueByUser.set(entry.user_id, {
+          wpm: entry.wpm,
+          accuracy: entry.accuracy,
+          created_at: entry.created_at,
+        });
+      }
+    });
+
+    const userIds = Array.from(uniqueByUser.keys());
+    let profileLookup: Record<string, { username: string | null; tier: string | null; program: string | null }> = {};
+
+    if (userIds.length > 0) {
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, username, tier, program, faculty")
+        .in("id", userIds);
+
+      if (profileError) {
+        console.error("Failed to fetch profile information", profileError);
+      } else {
+        profileLookup = (profileData ?? []).reduce<
+          Record<string, { username: string | null; tier: string | null; program: string | null }>
+        >((acc, profile) => {
+          acc[profile.id] = {
+            username: profile.username,
+            tier: profile.tier,
+            program: profile.program ?? profile.faculty ?? null,
+          };
+          return acc;
+        }, {});
+      }
+    }
+
+    const formatted: DisplayRow[] = Array.from(uniqueByUser.entries()).map(([userId, result]) => {
+      const profile = profileLookup[userId];
+      return {
+        rank: 0,
+        name: profile?.username ?? `Warrior ${userId.slice(0, 6)}`,
+        wpm: result.wpm,
+        accuracy: result.accuracy ?? null,
+        program: profile?.program ?? null,
+        tier: profile?.tier ?? null,
+        createdAt: result.created_at ?? null,
+      };
+    });
+
+    const combined = [...formatted, ...anonymousEntries].sort((a, b) => b.wpm - a.wpm).slice(0, totalSlots);
+
+    setRows(combined);
+    setLoading(false);
   }, []);
 
-  const formatName = (email: string) => {
-    if (!email) {
-      return "Waterloo Warrior";
-    }
-    const [localPart] = email.split("@");
-    return localPart.replace(/[._]/g, " ");
-  };
+  useEffect(() => {
+    let active = true;
+    const initialize = async () => {
+      if (!active) return;
+      await loadLeaderboard();
+    };
+
+    void initialize();
+
+    const channel = supabase
+      .channel("typing-tests-leaderboard")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "typing_tests" },
+        () => {
+          void loadLeaderboard();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [loadLeaderboard]);
 
   const getTierForWpm = (wpm: number) => {
     if (wpm >= 140) return "S+";
@@ -91,13 +155,30 @@ const LeaderboardPage = () => {
   };
 
   const filteredRows = useMemo(() => {
-    const enriched: DisplayRow[] = rows.map((row, index) => ({
-      rank: index + 1,
-      name: formatName(row.email),
-      wpm: row.wpm,
-      accuracy: row.accuracy,
-      program: row.program ?? row.faculty,
-      tier: getTierForWpm(row.wpm),
+    const now = new Date();
+
+    const withinRange = (createdAt: string | null) => {
+      if (!createdAt) return true;
+      const createdDate = new Date(createdAt);
+      if (Number.isNaN(createdDate.getTime())) return true;
+
+      switch (timeFilter) {
+        case "today":
+          return createdDate >= subDays(now, 1);
+        case "week":
+          return createdDate >= subWeeks(now, 1);
+        case "month":
+          return createdDate >= subMonths(now, 1);
+        default:
+          return true;
+      }
+    };
+
+    const timeFiltered = rows.filter((row) => withinRange(row.createdAt));
+
+    const enriched: DisplayRow[] = timeFiltered.map((row) => ({
+      ...row,
+      tier: row.tier ?? computeTierFromWpm(row.wpm),
     }));
 
     const query = search.trim().toLowerCase();
@@ -118,18 +199,27 @@ const LeaderboardPage = () => {
       program: placeholderProgram,
       tier: null,
       isPlaceholder: true,
+      createdAt: null,
     }));
 
-    return [...searched, ...placeholderEntries];
-  }, [rows, search]);
+    const ranked = [...searched, ...placeholderEntries].map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+    }));
+
+    return ranked;
+  }, [rows, search, timeFilter]);
 
   const topThree = filteredRows.slice(0, 3);
   const restOfLeaders = filteredRows.slice(3);
 
   const getTierColor = (tier: string) => {
     if (tier === "S+") return "bg-primary/20 text-primary border-primary/30";
+    if (tier.startsWith("S")) return "bg-purple-500/20 text-purple-400 border-purple-500/30";
     if (tier.startsWith("A")) return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-    return "bg-green-500/20 text-green-400 border-green-500/30";
+    if (tier.startsWith("B")) return "bg-green-500/20 text-green-400 border-green-500/30";
+    if (tier.startsWith("C")) return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30";
+    return "bg-muted text-muted-foreground border-border";
   };
 
   return (
