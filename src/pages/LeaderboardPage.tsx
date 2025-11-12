@@ -118,7 +118,7 @@ const LeaderboardPage = () => {
       const profile = profileLookup[userId];
       return {
         rank: 0,
-        name: profile?.username ?? result.username ?? `Warrior ${userId.slice(0, 6)}`,
+        name: profile?.username ?? result.username ?? "Anonymous Warrior",
         wpm: result.wpm,
         accuracy: result.accuracy ?? null,
         program: profile?.program ?? profile?.faculty ?? result.faculty ?? null,
