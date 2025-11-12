@@ -38,7 +38,7 @@ const LeaderboardPage = () => {
 
     const { data, error } = await supabase
       .from("typing_tests")
-      .select("user_id, wpm, accuracy, created_at")
+      .select("user_id, wpm, accuracy, created_at, username, faculty")
       .order("wpm", { ascending: false })
       .limit(200);
 
@@ -50,19 +50,23 @@ const LeaderboardPage = () => {
       return;
     }
 
-    const uniqueByUser = new Map<string, { wpm: number; accuracy: number; created_at: string | null }>();
+    const uniqueByUser = new Map<
+      string,
+      { wpm: number; accuracy: number; created_at: string | null; username: string | null; faculty: string | null }
+    >();
     const anonymousEntries: DisplayRow[] = [];
 
     data?.forEach((entry) => {
       if (!entry.user_id) {
         anonymousEntries.push({
           rank: 0,
-          name: "Anonymous Warrior",
+          name: entry.username ?? "Anonymous Warrior",
           wpm: entry.wpm,
           accuracy: entry.accuracy,
-          program: null,
+          program: entry.faculty ?? null,
           tier: null,
           createdAt: entry.created_at,
+          faculty: entry.faculty ?? null,
         });
         return;
       }
@@ -72,6 +76,8 @@ const LeaderboardPage = () => {
           wpm: entry.wpm,
           accuracy: entry.accuracy,
           created_at: entry.created_at,
+          username: entry.username ?? null,
+          faculty: entry.faculty ?? null,
         });
       }
     });
@@ -112,13 +118,13 @@ const LeaderboardPage = () => {
       const profile = profileLookup[userId];
       return {
         rank: 0,
-        name: profile?.username ?? `Warrior ${userId.slice(0, 6)}`,
+        name: profile?.username ?? result.username ?? `Warrior ${userId.slice(0, 6)}`,
         wpm: result.wpm,
         accuracy: result.accuracy ?? null,
-        program: profile?.program ?? profile?.faculty ?? null,
+        program: profile?.program ?? profile?.faculty ?? result.faculty ?? null,
         tier: profile?.tier ?? null,
         createdAt: result.created_at ?? null,
-        faculty: profile?.faculty ?? null,
+        faculty: profile?.faculty ?? result.faculty ?? null,
       };
     });
 

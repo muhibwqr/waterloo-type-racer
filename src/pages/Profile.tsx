@@ -189,8 +189,12 @@ const Profile = () => {
     setSavingProfile(true);
     const { error: updateError } = await supabase.from("profiles").update(updates).eq("id", user.id);
 
-    if (updateError) {
-      console.error("Failed to update profile", updateError);
+    const { error: userMetadataError } = await supabase.auth.updateUser({
+      data: { username: editUsername, faculty: editFaculty },
+    });
+
+    if (updateError || userMetadataError) {
+      console.error("Failed to update profile", updateError ?? userMetadataError);
       toast.error("Couldn't save profile changes. Try again.");
     } else {
       toast.success("Profile updated!");

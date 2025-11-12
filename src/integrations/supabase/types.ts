@@ -106,6 +106,8 @@ export type Database = {
           raw_wpm: number
           test_duration: number | null
           test_mode: string
+          faculty: string | null
+          username: string | null
           user_id: string | null
           word_count: number | null
           wpm: number
@@ -123,6 +125,8 @@ export type Database = {
           raw_wpm: number
           test_duration?: number | null
           test_mode: string
+          faculty?: string | null
+          username?: string | null
           user_id?: string | null
           word_count?: number | null
           wpm: number
@@ -140,6 +144,8 @@ export type Database = {
           raw_wpm?: number
           test_duration?: number | null
           test_mode?: string
+          faculty?: string | null
+          username?: string | null
           user_id?: string | null
           word_count?: number | null
           wpm?: number

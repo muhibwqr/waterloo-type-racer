@@ -327,6 +327,11 @@ const TypingTest = () => {
     }
 
     setIsSaving(true);
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("username, faculty")
+      .eq("id", user.id)
+      .maybeSingle();
     const incorrectChars = Math.max(statsForUpload.totalChars - statsForUpload.correctChars, 0);
     const extraChars = Math.max(statsForUpload.totalChars - currentPrompt.length, 0);
     const missedChars = Math.max(currentPrompt.length - statsForUpload.totalChars, 0);
@@ -346,6 +351,8 @@ const TypingTest = () => {
         extra_chars: extraChars,
         missed_chars: missedChars,
         consistency: null,
+        username: profileRow?.username ?? user.user_metadata?.username ?? user.email?.split("@")[0],
+        faculty: profileRow?.faculty ?? user.user_metadata?.faculty ?? null,
       });
 
       if (error) {
