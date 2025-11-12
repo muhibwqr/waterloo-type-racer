@@ -6,6 +6,14 @@ import { Loader2, Check, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { FACULTY_OPTIONS } from "@/constants/faculties";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface SignUpFormProps {
   onSuccess: () => void;
@@ -18,6 +26,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [faculty, setFaculty] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const normalizedEmail = email.trim();
@@ -25,6 +34,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const usernameValid = username.length >= 3 && username.length <= 20 && /^[a-zA-Z0-9_]+$/.test(username);
   const passwordValid = password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
+  const facultyValid = faculty.length > 0;
 
   const getPasswordStrength = () => {
     if (password.length === 0) return null;
@@ -56,9 +66,14 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       return;
     }
 
+    if (!facultyValid) {
+      toast.error("Please choose your faculty");
+      return;
+    }
+
     setIsLoading(true);
 
-    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username);
+    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username, faculty);
 
     if (error) {
       if (error.message.includes("already registered")) {
@@ -120,6 +135,25 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
             3-20 chars, alphanumeric + underscore only
           </p>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="signup-faculty" className="text-foreground">Faculty</Label>
+        <Select value={faculty} onValueChange={setFaculty}>
+          <SelectTrigger
+            id="signup-faculty"
+            className={`h-12 bg-input border-2 ${faculty ? 'border-primary' : 'border-border'} focus:border-primary`}
+          >
+            <SelectValue placeholder="Select your faculty" />
+          </SelectTrigger>
+          <SelectContent>
+            {FACULTY_OPTIONS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">

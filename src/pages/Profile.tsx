@@ -1,12 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Clock, Target, TrendingUp, Loader2 } from "lucide-react";
+import { Trophy, Clock, Target, TrendingUp, Loader2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { computeTierFromWpm, formatDuration } from "@/lib/stats";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FACULTY_OPTIONS } from "@/constants/faculties";
+import { toast } from "sonner";
 
 type ProfileRow = {
   id: string;
@@ -37,6 +57,10 @@ const Profile = () => {
   const [tests, setTests] = useState<TypingTestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editUsername, setEditUsername] = useState("");
+  const [editFaculty, setEditFaculty] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const fetchProfileData = useCallback(async () => {
     if (!user?.id) return;
@@ -127,6 +151,55 @@ const Profile = () => {
 
   const recentTests = tests.slice(0, 5);
 
+  const openEditDialog = () => {
+    setEditUsername(profile?.username ?? user.email?.split("@")[0] ?? "");
+    setEditFaculty(profile?.faculty ?? "");
+    setIsEditOpen(true);
+  };
+
+  const usernameValid =
+    editUsername.length >= 3 && editUsername.length <= 20 && /^[a-zA-Z0-9_]+$/.test(editUsername);
+  const facultyValid = editFaculty.length > 0;
+
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    if (!usernameValid) {
+      toast.error("Username must be 3-20 characters (letters, numbers, underscore only)");
+      return;
+    }
+    if (!facultyValid) {
+      toast.error("Select your faculty");
+      return;
+    }
+
+    const updates: Record<string, string> = {};
+    if (editUsername !== profile?.username) {
+      updates.username = editUsername;
+    }
+    if (editFaculty !== (profile?.faculty ?? "")) {
+      updates.faculty = editFaculty;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      toast.info("No changes to save");
+      setIsEditOpen(false);
+      return;
+    }
+
+    setSavingProfile(true);
+    const { error: updateError } = await supabase.from("profiles").update(updates).eq("id", user.id);
+
+    if (updateError) {
+      console.error("Failed to update profile", updateError);
+      toast.error("Couldn't save profile changes. Try again.");
+    } else {
+      toast.success("Profile updated!");
+      await fetchProfileData();
+      setIsEditOpen(false);
+    }
+    setSavingProfile(false);
+  };
+
   const stats = [
     {
       icon: Trophy,
@@ -182,7 +255,7 @@ const Profile = () => {
             {tierLabel} TIER
           </Badge>
           <p className="text-muted-foreground mt-4">
-            Program: {profile?.program ?? profile?.faculty ?? "Update your profile"}
+            Faculty: {profile?.faculty ?? "Add your faculty"}
           </p>
           <p className="text-sm text-muted-foreground">
             Member since{" "}
@@ -192,6 +265,10 @@ const Profile = () => {
               ? format(new Date(user.created_at), "MMMM dd, yyyy")
               : "—"}
           </p>
+          <Button variant="outline" className="mt-6" onClick={openEditDialog}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit profile
+          </Button>
         </div>
 
         {/* Stats Grid */}
@@ -266,6 +343,67 @@ const Profile = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>Update your display name and faculty.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-username" className="text-foreground">
+                Display Name
+              </Label>
+              <Input
+                id="edit-username"
+                value={editUsername}
+                onChange={(event) => setEditUsername(event.target.value)}
+                className={`h-11 ${
+                  usernameValid ? "border-primary" : "border-border"
+                } focus:border-primary`}
+              />
+              {!usernameValid && (
+                <p className="text-xs text-muted-foreground">
+                  3-20 characters, letters, numbers or underscore.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-faculty" className="text-foreground">
+                Faculty
+              </Label>
+              <Select value={editFaculty} onValueChange={setEditFaculty}>
+                <SelectTrigger id="edit-faculty" className="h-11">
+                  <SelectValue placeholder="Select faculty" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FACULTY_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setIsEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={savingProfile || !usernameValid || !facultyValid}>
+              {savingProfile ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };
