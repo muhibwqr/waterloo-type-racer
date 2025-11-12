@@ -146,6 +146,7 @@ const TypingTest = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentPrompt = prompts[currentPromptIndex];
+  const canUpload = testFinished || (testStarted && typedText.trim().length > 0);
 
   const modes = useMemo(
     () => [
@@ -308,7 +309,15 @@ const TypingTest = () => {
   };
 
   const handleSaveScore = async () => {
-    if (!finalStats || !testFinished) {
+    let statsForUpload = finalStats;
+
+    if (testStarted && startTime) {
+      const computed = computeStats(typedText, currentPrompt, startTime);
+      finishTest();
+      statsForUpload = computed;
+    }
+
+    if (!statsForUpload) {
       toast.info("Finish a test before uploading your score.");
       return;
     }
@@ -318,9 +327,9 @@ const TypingTest = () => {
     }
 
     setIsSaving(true);
-    const incorrectChars = Math.max(finalStats.totalChars - finalStats.correctChars, 0);
-    const extraChars = Math.max(finalStats.totalChars - currentPrompt.length, 0);
-    const missedChars = Math.max(currentPrompt.length - finalStats.totalChars, 0);
+    const incorrectChars = Math.max(statsForUpload.totalChars - statsForUpload.correctChars, 0);
+    const extraChars = Math.max(statsForUpload.totalChars - currentPrompt.length, 0);
+    const missedChars = Math.max(currentPrompt.length - statsForUpload.totalChars, 0);
 
     try {
       const { error } = await supabase.from("typing_tests").insert({
@@ -328,11 +337,11 @@ const TypingTest = () => {
         test_mode: testMode,
         test_duration: duration,
         language: "english",
-        wpm: finalStats.wpm,
-        raw_wpm: finalStats.wpm,
-        accuracy: finalStats.accuracy,
-        word_count: finalStats.words,
-        correct_chars: finalStats.correctChars,
+        wpm: statsForUpload.wpm,
+        raw_wpm: statsForUpload.wpm,
+        accuracy: statsForUpload.accuracy,
+        word_count: statsForUpload.words,
+        correct_chars: statsForUpload.correctChars,
         incorrect_chars: incorrectChars,
         extra_chars: extraChars,
         missed_chars: missedChars,
@@ -496,10 +505,15 @@ const TypingTest = () => {
                 >
                   New Prompt
                 </Button>
+                {testStarted && (
+                  <Button variant="secondary" onClick={() => finishTest()}>
+                    Finish Test
+                  </Button>
+                )}
               </div>
               <Button
                 onClick={handleSaveScore}
-                disabled={!finalStats || !testFinished || isSaving || !user}
+                disabled={!canUpload || isSaving}
                 className="min-w-[140px]"
               >
                 {user ? (isSaving ? "Uploading..." : "Upload Score") : "Sign up to Upload"}
