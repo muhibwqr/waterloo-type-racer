@@ -1,27 +1,130 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, Trophy, Award, Medal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
+
+type LeaderboardRow = {
+  id: string;
+  userId: string;
+  email: string;
+  wpm: number;
+  accuracy: number;
+  program: string | null;
+  faculty: string | null;
+  tier?: string | null;
+};
+
+type DisplayRow = {
+  rank: number;
+  name: string;
+  wpm: number;
+  accuracy: number | null;
+  program: string | null;
+  tier: string | null;
+  isPlaceholder?: boolean;
+};
+
+const totalSlots = 23;
+const placeholderName = "Waiting for a Waterloo Warrior";
+const placeholderProgram = "Claim this spot";
 
 const LeaderboardPage = () => {
   const [search, setSearch] = useState("");
   const [timeFilter, setTimeFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const topThree = [
-    { rank: 2, name: "Sarah Chen", tier: "S+", wpm: 138, accuracy: 98.5, program: "CS '26" },
-    { rank: 1, name: "Alex Kumar", tier: "S+", wpm: 142, accuracy: 99.2, program: "ECE '25" },
-    { rank: 3, name: "Emily Wu", tier: "A+", wpm: 135, accuracy: 97.8, program: "Math '26" },
-  ];
+  useEffect(() => {
+    const loadLeaderboard = async () => {
+      setLoading(true);
+      setFetchError(null);
+      const { data, error } = await supabase
+        .from("leaderboard")
+        .select("*")
+        .order("wpm", { ascending: false })
+        .limit(totalSlots);
 
-  const restOfLeaders = Array.from({ length: 20 }, (_, i) => ({
-    rank: i + 4,
-    name: `User ${i + 4}`,
-    tier: i < 5 ? "A+" : i < 10 ? "A" : i < 15 ? "B+" : "B",
-    wpm: 130 - i * 2,
-    accuracy: 97 - i * 0.3,
-    program: "CS '26",
-  }));
+      if (error) {
+        console.error("Failed to fetch leaderboard entries", error);
+        setFetchError("We couldn't load the leaderboard right now.");
+        setRows([]);
+      } else {
+        const safeData =
+          data?.map((entry) => ({
+            id: entry.id ?? `${entry.user_id}-${entry.email}`,
+            userId: entry.user_id,
+            email: entry.email,
+            wpm: entry.wpm,
+            accuracy: entry.accuracy,
+            program: entry.program,
+            faculty: entry.faculty,
+            tier: null,
+          })) ?? [];
+        setRows(safeData);
+      }
+      setLoading(false);
+    };
+
+    void loadLeaderboard();
+  }, []);
+
+  const formatName = (email: string) => {
+    if (!email) {
+      return "Waterloo Warrior";
+    }
+    const [localPart] = email.split("@");
+    return localPart.replace(/[._]/g, " ");
+  };
+
+  const getTierForWpm = (wpm: number) => {
+    if (wpm >= 140) return "S+";
+    if (wpm >= 125) return "S";
+    if (wpm >= 115) return "A+";
+    if (wpm >= 105) return "A";
+    if (wpm >= 95) return "B";
+    if (wpm >= 85) return "C";
+    return "D";
+  };
+
+  const filteredRows = useMemo(() => {
+    const enriched: DisplayRow[] = rows.map((row, index) => ({
+      rank: index + 1,
+      name: formatName(row.email),
+      wpm: row.wpm,
+      accuracy: row.accuracy,
+      program: row.program ?? row.faculty,
+      tier: getTierForWpm(row.wpm),
+    }));
+
+    const query = search.trim().toLowerCase();
+    const searched = query.length
+      ? enriched.filter((entry) => entry.name.toLowerCase().includes(query))
+      : enriched;
+
+    if (searched.length >= totalSlots) {
+      return searched.slice(0, totalSlots);
+    }
+
+    const placeholdersNeeded = totalSlots - searched.length;
+    const placeholderEntries = Array.from({ length: placeholdersNeeded }, (_, idx) => ({
+      rank: searched.length + idx + 1,
+      name: placeholderName,
+      wpm: 0,
+      accuracy: null,
+      program: placeholderProgram,
+      tier: null,
+      isPlaceholder: true,
+    }));
+
+    return [...searched, ...placeholderEntries];
+  }, [rows, search]);
+
+  const topThree = filteredRows.slice(0, 3);
+  const restOfLeaders = filteredRows.slice(3);
 
   const getTierColor = (tier: string) => {
     if (tier === "S+") return "bg-primary/20 text-primary border-primary/30";
@@ -71,9 +174,23 @@ const LeaderboardPage = () => {
           </div>
         </div>
 
+        {loading && (
+          <div className="flex items-center justify-center gap-3 text-muted-foreground mb-12">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>Loading leaderboard…</span>
+          </div>
+        )}
+
+        {fetchError && !loading && (
+          <div className="max-w-2xl mx-auto mb-12 px-6 py-4 bg-destructive/10 border border-destructive/30 rounded-xl text-center text-destructive">
+            {fetchError}
+          </div>
+        )}
+
         {/* Top 3 Podium */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">
           {topThree.map((user, idx) => {
+            const isPlaceholder = user.isPlaceholder;
             const isFirst = user.rank === 1;
             const Icon = isFirst ? Trophy : user.rank === 2 ? Medal : Award;
             const bgGradient = isFirst
@@ -106,11 +223,17 @@ const LeaderboardPage = () => {
                       #{user.rank}
                     </div>
                     <h3 className="font-bold text-xl text-foreground">{user.name}</h3>
-                    <Badge className={getTierColor(user.tier)}>{user.tier} TIER</Badge>
-                    <div className="text-4xl font-bold text-primary">{user.wpm} WPM</div>
-                    <p className="text-sm text-muted-foreground">{user.accuracy}% accuracy</p>
+                    <Badge className={isPlaceholder ? "bg-muted text-muted-foreground border-border" : getTierColor(user.tier ?? "D")}>
+                      {isPlaceholder ? "Awaiting Warrior" : `${user.tier ?? "D"} Tier`}
+                    </Badge>
+                    <div className="text-4xl font-bold text-primary">
+                      {isPlaceholder ? "—" : `${user.wpm} WPM`}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isPlaceholder || user.accuracy === null ? "Accuracy TBD" : `${user.accuracy.toFixed(1)}% accuracy`}
+                    </p>
                     <span className="inline-block text-xs px-3 py-1 bg-card rounded-full border border-border">
-                      {user.program}
+                      {user.program ?? placeholderProgram}
                     </span>
                   </div>
                 </div>
@@ -134,17 +257,25 @@ const LeaderboardPage = () => {
                   <div className="flex-1">
                     <h4 className="font-bold text-lg text-foreground mb-1">{user.name}</h4>
                     <span className="text-xs px-3 py-1 bg-background rounded-full border border-border">
-                      {user.program}
+                      {user.program ?? placeholderProgram}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
-                  <Badge className={getTierColor(user.tier)}>{user.tier}</Badge>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-primary">{user.wpm} WPM</div>
-                    <p className="text-sm text-muted-foreground">{user.accuracy.toFixed(1)}% acc</p>
+                {user.isPlaceholder ? (
+                  <div className="text-right text-muted-foreground text-sm">
+                    Waiting on your record-breaking run
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-6">
+                    <Badge className={getTierColor(user.tier ?? "D")}>{user.tier ?? "D"}</Badge>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-primary">{user.wpm} WPM</div>
+                      <p className="text-sm text-muted-foreground">
+                        {user.accuracy === null ? "Accuracy TBD" : `${user.accuracy.toFixed(1)}% acc`}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}

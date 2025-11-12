@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -370,7 +369,7 @@ const TypingTest = () => {
           key={`${character}-${index}`}
           className={`${characterClass} ${isCurrent ? "border-b-2 border-primary" : ""}`}
         >
-          {character === " " ? "\u00A0" : character}
+          {character}
         </span>
       );
     });
@@ -382,26 +381,22 @@ const TypingTest = () => {
         <div className="max-w-4xl mx-auto mb-12">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-4xl font-bold text-foreground">WaterlooType Sprint</h1>
+              <h1 className="text-4xl font-bold text-foreground">
+                Join {totalUsers !== null ? totalUsers.toLocaleString() : "…"} Waterloo Warriors
+              </h1>
               <p className="text-muted-foreground text-sm mt-1">
                 Type your heart out with Waterloo-flavoured prompts. Save your score when you're signed in.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge className="flex items-center gap-2 bg-primary/10 text-primary border border-primary/20">
-                <Users className="h-4 w-4" />
-                {totalUsers !== null ? `${totalUsers.toLocaleString()} total users` : "Loading users"}
-              </Badge>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={handleUserCountRefresh}
-                aria-label="Refresh total users"
-              >
-                <RefreshCw className={`h-4 w-4 ${isFetchingUsers ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+              onClick={handleUserCountRefresh}
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetchingUsers ? "animate-spin" : ""}`} />
+              Refresh Count
+            </Button>
           </div>
 
           <div className="flex items-center justify-center gap-4 mb-6 flex-wrap">
@@ -476,7 +471,7 @@ const TypingTest = () => {
               </div>
             </div>
 
-            <div className="font-mono text-xl sm:text-2xl leading-relaxed min-h-[120px] sm:min-h-[160px] mb-6">
+            <div className="font-mono text-xl sm:text-2xl leading-relaxed min-h-[120px] sm:min-h-[160px] mb-6 whitespace-pre-wrap break-words">
               {renderPrompt()}
             </div>
 
