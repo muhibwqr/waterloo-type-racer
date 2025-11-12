@@ -31,11 +31,6 @@ const About = () => {
       <div className="container mx-auto px-6">
         {/* Hero Section */}
         <div className="text-center max-w-4xl mx-auto mb-20 space-y-6">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border mb-4">
-            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-            <span className="text-sm text-muted-foreground">1,247 Warriors typing now</span>
-          </div>
-
           <h1 className="text-6xl md:text-7xl font-bold leading-tight">
             <span className="text-foreground">Type Faster. </span>
             <span className="text-primary">Beat Waterloo.</span>

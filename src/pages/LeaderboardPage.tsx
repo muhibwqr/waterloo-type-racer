@@ -17,6 +17,7 @@ type DisplayRow = {
   tier: string | null;
   isPlaceholder?: boolean;
   createdAt: string | null;
+  faculty?: string | null;
 };
 
 const totalSlots = 23;
@@ -26,6 +27,7 @@ const placeholderProgram = "Claim this spot";
 const LeaderboardPage = () => {
   const [search, setSearch] = useState("");
   const [timeFilter, setTimeFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"users" | "faculties">("users");
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<DisplayRow[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -75,7 +77,10 @@ const LeaderboardPage = () => {
     });
 
     const userIds = Array.from(uniqueByUser.keys());
-    let profileLookup: Record<string, { username: string | null; tier: string | null; program: string | null }> = {};
+    let profileLookup: Record<
+      string,
+      { username: string | null; tier: string | null; program: string | null; faculty: string | null }
+    > = {};
 
     if (userIds.length > 0) {
       const { data: profileData, error: profileError } = await supabase
@@ -87,12 +92,16 @@ const LeaderboardPage = () => {
         console.error("Failed to fetch profile information", profileError);
       } else {
         profileLookup = (profileData ?? []).reduce<
-          Record<string, { username: string | null; tier: string | null; program: string | null }>
+          Record<
+            string,
+            { username: string | null; tier: string | null; program: string | null; faculty: string | null }
+          >
         >((acc, profile) => {
           acc[profile.id] = {
             username: profile.username,
             tier: profile.tier,
-            program: profile.program ?? profile.faculty ?? null,
+            program: profile.program,
+            faculty: profile.faculty,
           };
           return acc;
         }, {});
@@ -106,9 +115,10 @@ const LeaderboardPage = () => {
         name: profile?.username ?? `Warrior ${userId.slice(0, 6)}`,
         wpm: result.wpm,
         accuracy: result.accuracy ?? null,
-        program: profile?.program ?? null,
+        program: profile?.program ?? profile?.faculty ?? null,
         tier: profile?.tier ?? null,
         createdAt: result.created_at ?? null,
+        faculty: profile?.faculty ?? null,
       };
     });
 
@@ -144,16 +154,6 @@ const LeaderboardPage = () => {
     };
   }, [loadLeaderboard]);
 
-  const getTierForWpm = (wpm: number) => {
-    if (wpm >= 140) return "S+";
-    if (wpm >= 125) return "S";
-    if (wpm >= 115) return "A+";
-    if (wpm >= 105) return "A";
-    if (wpm >= 95) return "B";
-    if (wpm >= 85) return "C";
-    return "D";
-  };
-
   const filteredRows = useMemo(() => {
     const now = new Date();
 
@@ -176,23 +176,77 @@ const LeaderboardPage = () => {
 
     const timeFiltered = rows.filter((row) => withinRange(row.createdAt));
 
-    const enriched: DisplayRow[] = timeFiltered.map((row) => ({
+    const searchedRows = timeFiltered.filter((entry) => {
+      const query = search.trim().toLowerCase();
+      if (!query.length) return true;
+      return entry.name.toLowerCase().includes(query);
+    });
+
+    if (viewMode === "faculties") {
+      const grouped = searchedRows.reduce<Record<string, DisplayRow>>((acc, entry) => {
+        const key = entry.faculty ?? entry.program ?? "Unknown Faculty";
+        const existing = acc[key];
+        if (!existing || entry.wpm > existing.wpm) {
+          acc[key] = {
+            rank: 0,
+            name: key,
+            wpm: entry.wpm,
+            accuracy: entry.accuracy,
+            program: key,
+            tier: entry.tier ?? computeTierFromWpm(entry.wpm),
+            createdAt: entry.createdAt,
+            isPlaceholder: false,
+            faculty: key,
+          };
+        }
+        return acc;
+      }, {});
+
+      const sorted = Object.values(grouped)
+        .sort((a, b) => b.wpm - a.wpm)
+        .slice(0, totalSlots)
+        .map((entry, index) => ({
+          ...entry,
+          rank: index + 1,
+        }));
+
+      if (sorted.length >= totalSlots) {
+        return sorted;
+      }
+
+      const placeholdersNeeded = totalSlots - sorted.length;
+      const placeholders = Array.from({ length: placeholdersNeeded }, (_, idx) => ({
+        rank: sorted.length + idx + 1,
+        name: placeholderName,
+        wpm: 0,
+        accuracy: null,
+        program: placeholderProgram,
+        tier: null,
+        isPlaceholder: true,
+        createdAt: null,
+        faculty: null,
+      }));
+
+      return [...sorted, ...placeholders];
+    }
+
+    const enriched: DisplayRow[] = searchedRows.map((row) => ({
       ...row,
       tier: row.tier ?? computeTierFromWpm(row.wpm),
     }));
 
-    const query = search.trim().toLowerCase();
-    const searched = query.length
-      ? enriched.filter((entry) => entry.name.toLowerCase().includes(query))
-      : enriched;
+    const sortedEnriched = [...enriched].sort((a, b) => b.wpm - a.wpm);
 
-    if (searched.length >= totalSlots) {
-      return searched.slice(0, totalSlots);
+    if (sortedEnriched.length >= totalSlots) {
+      return sortedEnriched.slice(0, totalSlots).map((entry, index) => ({
+        ...entry,
+        rank: index + 1,
+      }));
     }
 
-    const placeholdersNeeded = totalSlots - searched.length;
+    const placeholdersNeeded = totalSlots - sortedEnriched.length;
     const placeholderEntries = Array.from({ length: placeholdersNeeded }, (_, idx) => ({
-      rank: searched.length + idx + 1,
+      rank: sortedEnriched.length + idx + 1,
       name: placeholderName,
       wpm: 0,
       accuracy: null,
@@ -200,15 +254,16 @@ const LeaderboardPage = () => {
       tier: null,
       isPlaceholder: true,
       createdAt: null,
+      faculty: null,
     }));
 
-    const ranked = [...searched, ...placeholderEntries].map((entry, index) => ({
+    const ranked = [...sortedEnriched, ...placeholderEntries].map((entry, index) => ({
       ...entry,
       rank: index + 1,
     }));
 
     return ranked;
-  }, [rows, search, timeFilter]);
+  }, [rows, search, timeFilter, viewMode]);
 
   const topThree = filteredRows.slice(0, 3);
   const restOfLeaders = filteredRows.slice(3);
@@ -221,6 +276,9 @@ const LeaderboardPage = () => {
     if (tier.startsWith("C")) return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30";
     return "bg-muted text-muted-foreground border-border";
   };
+
+  const placeholderBadgeLabel = viewMode === "faculties" ? "Awaiting Faculty" : "Awaiting Warrior";
+  const searchPlaceholder = viewMode === "faculties" ? "Search faculties..." : "Search users...";
 
   return (
     <main className="min-h-screen pt-32 pb-20">
@@ -250,13 +308,33 @@ const LeaderboardPage = () => {
           ))}
         </div>
 
+        {/* View Mode Toggle */}
+        <div className="flex justify-center gap-4 mb-8">
+          <Button
+            variant={viewMode === "users" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("users")}
+            aria-pressed={viewMode === "users"}
+          >
+            User Leaderboard
+          </Button>
+          <Button
+            variant={viewMode === "faculties" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("faculties")}
+            aria-pressed={viewMode === "faculties"}
+          >
+            Faculty Leaderboard
+          </Button>
+        </div>
+
         {/* Search Bar */}
         <div className="max-w-2xl mx-auto mb-12">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search users..."
+              placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-12 pl-12 bg-card border-border rounded-xl"
@@ -313,8 +391,18 @@ const LeaderboardPage = () => {
                       #{user.rank}
                     </div>
                     <h3 className="font-bold text-xl text-foreground">{user.name}</h3>
-                    <Badge className={isPlaceholder ? "bg-muted text-muted-foreground border-border" : getTierColor(user.tier ?? "D")}>
-                      {isPlaceholder ? "Awaiting Warrior" : `${user.tier ?? "D"} Tier`}
+                    <Badge
+                      className={
+                        isPlaceholder
+                          ? "bg-muted text-muted-foreground border-border"
+                          : getTierColor(user.tier ?? "D")
+                      }
+                    >
+                      {isPlaceholder
+                        ? placeholderBadgeLabel
+                        : viewMode === "faculties"
+                        ? "Top Faculty"
+                        : `${user.tier ?? "D"} Tier`}
                     </Badge>
                     <div className="text-4xl font-bold text-primary">
                       {isPlaceholder ? "—" : `${user.wpm} WPM`}
@@ -353,13 +441,17 @@ const LeaderboardPage = () => {
                 </div>
                 {user.isPlaceholder ? (
                   <div className="text-right text-muted-foreground text-sm">
-                    Waiting on your record-breaking run
+                    {viewMode === "faculties"
+                      ? "Be the first to represent your faculty."
+                      : "Waiting on your record-breaking run"}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-6">
-                    <Badge className={getTierColor(user.tier ?? "D")}>{user.tier ?? "D"}</Badge>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-primary">{user.wpm} WPM</div>
+                <div className="flex items-center gap-6">
+                    <Badge className={getTierColor(user.tier ?? "D")}>
+                      {viewMode === "faculties" ? "Top Faculty" : user.tier ?? "D"}
+                    </Badge>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-primary">{user.wpm} WPM</div>
                       <p className="text-sm text-muted-foreground">
                         {user.accuracy === null ? "Accuracy TBD" : `${user.accuracy.toFixed(1)}% acc`}
                       </p>
