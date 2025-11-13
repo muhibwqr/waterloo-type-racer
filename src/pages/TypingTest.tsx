@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ClipboardEvent,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
@@ -308,6 +316,14 @@ const TypingTest = () => {
     setTypedText(value);
   };
 
+  const handlePreventClipboard = useCallback(
+    (event: ClipboardEvent<HTMLTextAreaElement>) => {
+      event.preventDefault();
+      toast.info("Copy, cut, and paste are disabled during the test.");
+    },
+    [],
+  );
+
   const handleSaveScore = async () => {
     let statsForUpload = finalStats;
 
@@ -494,6 +510,9 @@ const TypingTest = () => {
             <Textarea
               value={typedText}
               onChange={handleTextChange}
+              onPaste={handlePreventClipboard}
+              onCopy={handlePreventClipboard}
+              onCut={handlePreventClipboard}
               placeholder="Start typing to begin the test..."
               className="bg-background border-border focus-visible:ring-primary min-h-[140px] font-mono text-lg"
               autoFocus

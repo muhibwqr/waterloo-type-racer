@@ -31,6 +31,8 @@ const LeaderboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<DisplayRow[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [liveTypers, setLiveTypers] = useState<number | null>(null);
+  const [liveTypersLoading, setLiveTypersLoading] = useState(false);
 
   const loadLeaderboard = useCallback(async () => {
     setLoading(true);
@@ -157,11 +159,29 @@ const LeaderboardPage = () => {
     setLoading(false);
   }, []);
 
+  const loadLiveTypers = useCallback(async () => {
+    setLiveTypersLoading(true);
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("typing_tests")
+      .select("user_id")
+      .gte("created_at", twoMinutesAgo)
+      .not("user_id", "is", null);
+
+    if (error) {
+      console.error("Failed to fetch live typers", error);
+    } else {
+      const unique = new Set((data ?? []).map((entry) => entry.user_id));
+      setLiveTypers(unique.size);
+    }
+    setLiveTypersLoading(false);
+  }, []);
+
   useEffect(() => {
     let active = true;
     const initialize = async () => {
       if (!active) return;
-      await loadLeaderboard();
+      await Promise.all([loadLeaderboard(), loadLiveTypers()]);
     };
 
     void initialize();
@@ -172,7 +192,7 @@ const LeaderboardPage = () => {
         "postgres_changes",
         { event: "*", schema: "public", table: "typing_tests" },
         () => {
-          void loadLeaderboard();
+          void Promise.all([loadLeaderboard(), loadLiveTypers()]);
         },
       )
       .subscribe();
@@ -181,7 +201,15 @@ const LeaderboardPage = () => {
       active = false;
       supabase.removeChannel(channel);
     };
-  }, [loadLeaderboard]);
+  }, [loadLeaderboard, loadLiveTypers]);
+
+  useEffect(() => {
+    void loadLiveTypers();
+    const interval = setInterval(() => {
+      void loadLiveTypers();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [loadLiveTypers]);
 
   const filteredRows = useMemo(() => {
     const now = new Date();
@@ -316,6 +344,17 @@ const LeaderboardPage = () => {
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4 text-foreground">Leaderboard</h1>
           <p className="text-muted-foreground text-lg">Top typers at University of Waterloo</p>
+        </div>
+
+        {/* Live typers pill */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-sm text-emerald-300">
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400"></span>
+            </span>
+            {liveTypersLoading ? "Updating…" : `${liveTypers ?? 0} users typing now`}
+          </div>
         </div>
 
         {/* Filter Tabs */}
