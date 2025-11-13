@@ -36,19 +36,42 @@ const LeaderboardPage = () => {
     setLoading(true);
     setFetchError(null);
 
-    const { data, error } = await supabase
+    type BaseTestRow = {
+      user_id: string | null;
+      wpm: number;
+      accuracy: number;
+      created_at: string | null;
+      username?: string | null;
+      faculty?: string | null;
+    };
+
+    let includeTestMetadata = true;
+
+    let { data, error } = await supabase
       .from("typing_tests")
       .select("user_id, wpm, accuracy, created_at, username, faculty")
       .order("wpm", { ascending: false })
       .limit(200);
 
     if (error) {
-      console.error("Failed to fetch leaderboard entries", error);
-      setFetchError("We couldn't load the leaderboard right now.");
-      setRows([]);
-      setLoading(false);
-      return;
+      includeTestMetadata = false;
+      const fallback = await supabase
+        .from("typing_tests")
+        .select("user_id, wpm, accuracy, created_at")
+        .order("wpm", { ascending: false })
+        .limit(200);
+
+      if (fallback.error) {
+        console.error("Failed to fetch leaderboard entries", fallback.error);
+        setFetchError("We couldn't load the leaderboard right now.");
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+      data = fallback.data as BaseTestRow[] | null;
     }
+
+    const rowsWithMetadata = (data ?? []) as BaseTestRow[];
 
     const uniqueByUser = new Map<
       string,
@@ -56,7 +79,7 @@ const LeaderboardPage = () => {
     >();
     const anonymousEntries: DisplayRow[] = [];
 
-    data?.forEach((entry) => {
+    rowsWithMetadata.forEach((entry) => {
       if (!entry.user_id) {
         anonymousEntries.push({
           rank: 0,
@@ -76,8 +99,8 @@ const LeaderboardPage = () => {
           wpm: entry.wpm,
           accuracy: entry.accuracy,
           created_at: entry.created_at,
-          username: entry.username ?? null,
-          faculty: entry.faculty ?? null,
+          username: includeTestMetadata ? entry.username ?? null : null,
+          faculty: includeTestMetadata ? entry.faculty ?? null : null,
         });
       }
     });
