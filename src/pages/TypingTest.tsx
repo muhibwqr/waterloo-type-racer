@@ -167,7 +167,7 @@ const TypingTest = () => {
     [],
   );
 
-  const timeOptions = useMemo(() => [15, 30, 60, 120], []);
+  const timeOptions = useMemo(() => [15, 30, 60], []);
 
   const computeStats = useCallback((text: string, promptText: string, startedAt: number | null): Stats => {
     const totalChars = text.length;
@@ -411,50 +411,21 @@ const TypingTest = () => {
     <main className="min-h-screen pt-32 pb-20">
       <div className="container mx-auto px-6">
         <div className="max-w-4xl mx-auto mb-12">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-            <div>
+          <div className="mb-8">
+            <div className="flex items-center justify-center gap-3 mb-2 flex-wrap">
               <h1 className="text-4xl font-bold text-foreground">
-                Join {totalUsers !== null ? totalUsers.toLocaleString() : "…"} Waterloo Warriors
+                Join Waterloo Warriors
               </h1>
-              <p className="text-muted-foreground text-sm mt-1">
-                Type your heart out with Waterloo-flavoured prompts. Save your score when you're signed in.
-              </p>
+              <span className="px-4 py-1.5 bg-primary/20 text-primary border border-primary/30 rounded-full text-sm font-semibold whitespace-nowrap">
+                {totalUsers !== null ? totalUsers.toLocaleString() : "…"} typing
+              </span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={handleUserCountRefresh}
-            >
-              <RefreshCw className={`h-4 w-4 ${isFetchingUsers ? "animate-spin" : ""}`} />
-              Refresh Count
-            </Button>
+            <p className="text-muted-foreground text-sm mt-1 text-center">
+              Type your heart out with Waterloo-flavoured prompts. Save your score when you're signed in.
+            </p>
           </div>
 
-          <div className="flex items-center justify-center gap-4 mb-6 flex-wrap">
-            {modes.map((mode) => {
-              const Icon = mode.icon;
-              return (
-                <Button
-                  key={mode.id}
-                  variant={testMode === mode.id ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => {
-                    setTestMode(mode.id as TestMode);
-                    handleRestart();
-                  }}
-                  className={`${
-                    testMode === mode.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {mode.label}
-                </Button>
-              );
-            })}
-          </div>
+          {/* Mode selector hidden - time mode only */}
 
           {testMode === "time" && (
             <div className="flex items-center justify-center gap-3">
