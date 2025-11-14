@@ -185,7 +185,7 @@ const TypingTest = () => {
   }, []);
 
   const finishTest = useCallback(
-    (reason: "time" | "manual") => {
+    (reason: "time" | "manual", finalText?: string) => {
       if (testFinished) {
         return;
       }
@@ -197,7 +197,7 @@ const TypingTest = () => {
         return;
       }
 
-      const stats = computeStats(typedText, currentPrompt, startTime);
+      const stats = computeStats(finalText ?? typedText, currentPrompt, startTime);
       setFinalStats(stats);
       setTestStarted(false);
       setTestFinished(true);
@@ -307,13 +307,26 @@ const TypingTest = () => {
 
   const handleTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     const value = event.target.value;
+    let effectiveStart = startTime;
     if (!testStarted) {
+      const now = Date.now();
       setTestStarted(true);
       setTestFinished(false);
-      setStartTime(Date.now());
+      setStartTime(now);
       setFinalStats(null);
+      effectiveStart = now;
     }
     setTypedText(value);
+
+    if (value === currentPrompt && effectiveStart) {
+      const stats = computeStats(value, currentPrompt, effectiveStart);
+      finishTest("manual", value);
+      if (user) {
+        void handleSaveScore({ auto: true, statsOverride: stats });
+      } else {
+        toast.info("Sign in to upload your result.");
+      }
+    }
   };
 
   const handlePreventClipboard = useCallback(
@@ -324,13 +337,15 @@ const TypingTest = () => {
     [],
   );
 
-  const handleSaveScore = async () => {
-    if (!testFinished || !finalStats) {
+  const handleSaveScore = async (options?: { auto?: boolean; statsOverride?: Stats }) => {
+    const statsForUpload = options?.statsOverride ?? finalStats;
+
+    if (!testFinished || !statsForUpload) {
       toast.info("Finish a test before uploading your score.");
       return;
     }
 
-    if (finishReason !== "time" && !typedPromptExactly) {
+    if (finishReason !== "time" && !typedPromptExactly && !options?.statsOverride) {
       toast.info("Type the entire prompt accurately before uploading early.");
       return;
     }
@@ -346,9 +361,9 @@ const TypingTest = () => {
       .select("username, faculty")
       .eq("id", user.id)
       .maybeSingle();
-    const incorrectChars = Math.max(finalStats.totalChars - finalStats.correctChars, 0);
-    const extraChars = Math.max(finalStats.totalChars - currentPrompt.length, 0);
-    const missedChars = Math.max(currentPrompt.length - finalStats.totalChars, 0);
+    const incorrectChars = Math.max(statsForUpload.totalChars - statsForUpload.correctChars, 0);
+    const extraChars = Math.max(statsForUpload.totalChars - currentPrompt.length, 0);
+    const missedChars = Math.max(currentPrompt.length - statsForUpload.totalChars, 0);
 
     try {
       const { error } = await supabase.from("typing_tests").insert({
@@ -356,11 +371,11 @@ const TypingTest = () => {
         test_mode: testMode,
         test_duration: duration,
         language: "english",
-        wpm: finalStats.wpm,
-        raw_wpm: finalStats.wpm,
-        accuracy: finalStats.accuracy,
-        word_count: finalStats.words,
-        correct_chars: finalStats.correctChars,
+        wpm: statsForUpload.wpm,
+        raw_wpm: statsForUpload.wpm,
+        accuracy: statsForUpload.accuracy,
+        word_count: statsForUpload.words,
+        correct_chars: statsForUpload.correctChars,
         incorrect_chars: incorrectChars,
         extra_chars: extraChars,
         missed_chars: missedChars,
