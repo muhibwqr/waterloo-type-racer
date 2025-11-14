@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Clock, Hash, Quote, Zap, PenTool, Users, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
 
@@ -149,23 +149,11 @@ const TypingTest = () => {
   const [finalStats, setFinalStats] = useState<Stats | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [totalUsers, setTotalUsers] = useState<number | null>(null);
-  const [isFetchingUsers, setIsFetchingUsers] = useState(false);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(() => Math.floor(Math.random() * prompts.length));
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [finishReason, setFinishReason] = useState<"time" | "manual" | null>(null);
 
   const currentPrompt = prompts[currentPromptIndex];
-  const canUpload = testFinished || (testStarted && typedText.trim().length > 0);
-
-  const modes = useMemo(
-    () => [
-      { id: "time", icon: Clock, label: "time" },
-      { id: "words", icon: Hash, label: "words" },
-      { id: "quote", icon: Quote, label: "quote" },
-      { id: "zen", icon: Zap, label: "zen" },
-      { id: "custom", icon: PenTool, label: "custom" },
-    ],
-    [],
-  );
 
   const timeOptions = useMemo(() => [15, 30, 60], []);
 
@@ -196,20 +184,32 @@ const TypingTest = () => {
     };
   }, []);
 
-  const finishTest = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    if (!startTime) {
-      return;
-    }
+  const finishTest = useCallback(
+    (reason: "time" | "manual") => {
+      if (testFinished) {
+        return;
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (!startTime) {
+        return;
+      }
 
-    const stats = computeStats(typedText, currentPrompt, startTime);
-    setFinalStats(stats);
-    setTestStarted(false);
-    setTestFinished(true);
-  }, [computeStats, currentPrompt, startTime, typedText]);
+      const stats = computeStats(typedText, currentPrompt, startTime);
+      setFinalStats(stats);
+      setTestStarted(false);
+      setTestFinished(true);
+      setFinishReason(reason);
+      setTimeLeft(0);
+    },
+    [computeStats, currentPrompt, startTime, testFinished, typedText],
+  );
+
+  const typedPromptExactly = typedText === currentPrompt;
+
+  const canUploadScore = finalStats && testFinished && (finishReason === "time" || typedPromptExactly);
 
   const getRandomPromptIndex = useCallback(
     (excludeIndex: number) => {
@@ -239,6 +239,7 @@ const TypingTest = () => {
       setStartTime(null);
       setFinalStats(null);
       setTimeLeft(options?.nextDuration ?? duration);
+      setFinishReason(null);
 
       if (options?.nextPrompt) {
         setCurrentPromptIndex((previous) => getRandomPromptIndex(previous));
@@ -248,7 +249,6 @@ const TypingTest = () => {
   );
 
   const handleUserCountRefresh = useCallback(async () => {
-    setIsFetchingUsers(true);
     const { count, error } = await supabase
       .from("profiles")
       .select("*", { count: "exact", head: true });
@@ -258,7 +258,6 @@ const TypingTest = () => {
     } else {
       setTotalUsers(count ?? 0);
     }
-    setIsFetchingUsers(false);
   }, []);
 
   useEffect(() => {
@@ -276,12 +275,13 @@ const TypingTest = () => {
     }
 
     timerRef.current = setInterval(() => {
-      const secondsElapsed = Math.floor((Date.now() - startTime) / 1000);
-      const remaining = Math.max(duration - secondsElapsed, 0);
-      setTimeLeft(remaining);
-      if (remaining === 0) {
-        finishTest();
-      }
+      setTimeLeft((previous) => {
+        if (previous <= 1) {
+          finishTest("time");
+          return 0;
+        }
+        return previous - 1;
+      });
     }, 1000);
 
     return () => {
@@ -325,18 +325,16 @@ const TypingTest = () => {
   );
 
   const handleSaveScore = async () => {
-    let statsForUpload = finalStats;
-
-    if (testStarted && startTime) {
-      const computed = computeStats(typedText, currentPrompt, startTime);
-      finishTest();
-      statsForUpload = computed;
-    }
-
-    if (!statsForUpload) {
+    if (!testFinished || !finalStats) {
       toast.info("Finish a test before uploading your score.");
       return;
     }
+
+    if (finishReason !== "time" && !typedPromptExactly) {
+      toast.info("Type the entire prompt accurately before uploading early.");
+      return;
+    }
+
     if (!user) {
       toast.info("Create an account to upload your scores and compete on the leaderboard.");
       return;
@@ -348,9 +346,9 @@ const TypingTest = () => {
       .select("username, faculty")
       .eq("id", user.id)
       .maybeSingle();
-    const incorrectChars = Math.max(statsForUpload.totalChars - statsForUpload.correctChars, 0);
-    const extraChars = Math.max(statsForUpload.totalChars - currentPrompt.length, 0);
-    const missedChars = Math.max(currentPrompt.length - statsForUpload.totalChars, 0);
+    const incorrectChars = Math.max(finalStats.totalChars - finalStats.correctChars, 0);
+    const extraChars = Math.max(finalStats.totalChars - currentPrompt.length, 0);
+    const missedChars = Math.max(currentPrompt.length - finalStats.totalChars, 0);
 
     try {
       const { error } = await supabase.from("typing_tests").insert({
@@ -358,11 +356,11 @@ const TypingTest = () => {
         test_mode: testMode,
         test_duration: duration,
         language: "english",
-        wpm: statsForUpload.wpm,
-        raw_wpm: statsForUpload.wpm,
-        accuracy: statsForUpload.accuracy,
-        word_count: statsForUpload.words,
-        correct_chars: statsForUpload.correctChars,
+        wpm: finalStats.wpm,
+        raw_wpm: finalStats.wpm,
+        accuracy: finalStats.accuracy,
+        word_count: finalStats.words,
+        correct_chars: finalStats.correctChars,
         incorrect_chars: incorrectChars,
         extra_chars: extraChars,
         missed_chars: missedChars,
@@ -503,14 +501,23 @@ const TypingTest = () => {
                   New Prompt
                 </Button>
                 {testStarted && (
-                  <Button variant="secondary" onClick={() => finishTest()}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      if (!typedPromptExactly) {
+                        toast.info("Type the full prompt accurately to finish early.");
+                        return;
+                      }
+                      finishTest("manual");
+                    }}
+                  >
                     Finish Test
                   </Button>
                 )}
               </div>
               <Button
                 onClick={handleSaveScore}
-                disabled={!canUpload || isSaving}
+                disabled={!user || !canUploadScore || isSaving}
                 className="min-w-[140px]"
               >
                 {user ? (isSaving ? "Uploading..." : "Upload Score") : "Sign up to Upload"}
