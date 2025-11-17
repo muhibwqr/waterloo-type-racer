@@ -57,7 +57,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (emailOrUsername: string, password: string) => {
+    let email = emailOrUsername;
+
+    // If input doesn't look like an email, try to find it by username
+    if (!emailOrUsername.includes("@")) {
+      const { data: emailData, error: lookupError } = await supabase
+        .rpc("get_email_by_username", { username_input: emailOrUsername });
+
+      if (lookupError || !emailData) {
+        return { error: { message: "Invalid username or password" } };
+      }
+
+      email = emailData;
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

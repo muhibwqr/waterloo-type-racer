@@ -25,8 +25,8 @@ const SignInForm = ({ onSuccess }: SignInFormProps) => {
     if (error) {
       if (error.message.includes("Email not confirmed")) {
         toast.error("Please verify your email before signing in");
-      } else if (error.message.includes("Invalid")) {
-        toast.error("Invalid email or password");
+      } else if (error.message.includes("Invalid") || error.message.includes("username")) {
+        toast.error("Invalid email/username or password");
       } else {
         toast.error(error.message);
       }
@@ -46,7 +46,7 @@ const SignInForm = ({ onSuccess }: SignInFormProps) => {
           type="text"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@uwaterloo.ca"
+          placeholder="you@uwaterloo.ca or username"
           required
           className="h-12 bg-input border-border focus:border-primary focus:ring-primary"
         />
