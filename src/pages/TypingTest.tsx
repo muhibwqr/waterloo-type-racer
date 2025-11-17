@@ -12,7 +12,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { toast } from "sonner";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
 
@@ -148,7 +147,6 @@ const TypingTest = () => {
   const [timeLeft, setTimeLeft] = useState(duration);
   const [finalStats, setFinalStats] = useState<Stats | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [totalUsers, setTotalUsers] = useState<number | null>(null);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(() => Math.floor(Math.random() * prompts.length));
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [finishReason, setFinishReason] = useState<"time" | "manual" | null>(null);
@@ -197,8 +195,13 @@ const TypingTest = () => {
         return;
       }
 
-      const stats = computeStats(finalText ?? typedText, currentPrompt, startTime);
+      const finalTypedText = finalText ?? typedText;
+      const stats = computeStats(finalTypedText, currentPrompt, startTime);
       setFinalStats(stats);
+      // Lock the typed text to the exact prompt when completed
+      if (finalTypedText === currentPrompt) {
+        setTypedText(currentPrompt);
+      }
       setTestStarted(false);
       setTestFinished(true);
       setFinishReason(reason);
@@ -248,27 +251,6 @@ const TypingTest = () => {
     [duration, getRandomPromptIndex],
   );
 
-  const handleUserCountRefresh = useCallback(async () => {
-    const { count, error } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true });
-
-    if (error) {
-      console.error("Failed to load total users", error);
-    } else {
-      setTotalUsers(count ?? 0);
-    }
-  }, []);
-
-  useEffect(() => {
-    handleUserCountRefresh();
-    const interval = setInterval(handleUserCountRefresh, 30_000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [handleUserCountRefresh]);
-
   useEffect(() => {
     if (!testStarted || !startTime) {
       return;
@@ -306,7 +288,17 @@ const TypingTest = () => {
   }, [computeStats, currentPrompt, finalStats, startTime, testStarted, typedText]);
 
   const handleTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    const value = event.target.value;
+    if (testFinished) {
+      return;
+    }
+
+    let value = event.target.value;
+    
+    // Limit input to prompt length
+    if (value.length > currentPrompt.length) {
+      value = value.slice(0, currentPrompt.length);
+    }
+
     let effectiveStart = startTime;
     if (!testStarted) {
       const now = Date.now();
@@ -316,8 +308,10 @@ const TypingTest = () => {
       setFinalStats(null);
       effectiveStart = now;
     }
+    
     setTypedText(value);
 
+    // If the prompt is completed accurately, finish immediately
     if (value === currentPrompt && effectiveStart) {
       const stats = computeStats(value, currentPrompt, effectiveStart);
       finishTest("manual", value);
@@ -425,13 +419,10 @@ const TypingTest = () => {
       <div className="container mx-auto px-6">
         <div className="max-w-4xl mx-auto mb-12">
           <div className="mb-8">
-            <div className="flex items-center justify-center gap-3 mb-2 flex-wrap">
+            <div className="text-center mb-2">
               <h1 className="text-4xl font-bold text-foreground">
                 Join Waterloo Warriors
               </h1>
-              <span className="px-4 py-1.5 bg-primary/20 text-primary border border-primary/30 rounded-full text-sm font-semibold whitespace-nowrap">
-                {totalUsers !== null ? totalUsers.toLocaleString() : "…"} typing
-              </span>
             </div>
             <p className="text-muted-foreground text-sm mt-1 text-center">
               Type your heart out with Waterloo-flavoured prompts. Save your score when you're signed in.
@@ -499,7 +490,8 @@ const TypingTest = () => {
               onCut={handlePreventClipboard}
               placeholder="Start typing to begin the test..."
               className="bg-background border-border focus-visible:ring-primary min-h-[140px] font-mono text-lg"
-              autoFocus
+              disabled={testFinished}
+              autoFocus={!testFinished}
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3 mt-6">

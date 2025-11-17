@@ -77,15 +77,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: { message: "No email found" } };
     }
     
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: user.email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/`,
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/sign-in`,
+        }
+      });
+      
+      if (error) {
+        console.error("Resend verification error:", error);
+        return { error };
       }
-    });
-    
-    return { error };
+      
+      return { error: null };
+    } catch (err) {
+      console.error("Resend verification exception:", err);
+      return { error: err as Error };
+    }
   };
 
   return (

@@ -9,13 +9,19 @@ const EmailVerification = () => {
   const [isResending, setIsResending] = useState(false);
 
   const handleResend = async () => {
+    if (!user?.email) {
+      toast.error("No email address found");
+      return;
+    }
+
     setIsResending(true);
     const { error } = await resendVerification();
     
     if (error) {
-      toast.error("Failed to resend email");
+      console.error("Resend verification error:", error);
+      toast.error(error.message || "Failed to resend email. Please try again.");
     } else {
-      toast.success("Verification email sent!");
+      toast.success("Verification email sent! Check your inbox.");
     }
     
     setIsResending(false);
