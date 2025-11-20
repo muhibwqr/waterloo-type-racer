@@ -27,7 +27,7 @@ const Navigation = () => {
           <Link to="/" className="flex items-center gap-2 group">
             <Keyboard className="w-6 h-6 text-primary transition-colors" />
             <span className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors">
-              UniversityType
+              GooseType
             </span>
           </Link>
 

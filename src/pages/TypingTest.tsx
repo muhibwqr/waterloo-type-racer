@@ -434,7 +434,7 @@ const TypingTest = () => {
           <div className="mb-8">
             <div className="text-center mb-2">
               <h1 className="text-4xl font-bold text-foreground">
-                Join University Typers
+                Join Goose Typers
               </h1>
             </div>
             <p className="text-muted-foreground text-sm mt-1 text-center">

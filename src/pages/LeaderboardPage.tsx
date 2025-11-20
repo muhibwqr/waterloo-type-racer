@@ -21,7 +21,7 @@ type DisplayRow = {
 };
 
 const totalSlots = 23;
-const placeholderName = "Waiting for a University Typer";
+const placeholderName = "Waiting for a Goose Typer";
 const placeholderProgram = "Claim this spot";
 
 const LeaderboardPage = () => {

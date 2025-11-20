@@ -61,7 +61,7 @@ const About = () => {
         {/* Features Section */}
         <div className="max-w-6xl mx-auto mb-20">
           <h2 className="text-4xl font-bold text-center mb-12 text-foreground">
-            Why Join UniversityType?
+            Why Join GooseType?
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -87,7 +87,7 @@ const About = () => {
         <div className="max-w-3xl mx-auto text-center space-y-6 py-16 border-t border-border">
           <div className="text-6xl text-primary mb-4">"</div>
           <blockquote className="text-2xl italic text-foreground">
-            UniversityType turned our study sessions into a friendly competition. The leaderboard keeps us
+            GooseType turned our study sessions into a friendly competition. The leaderboard keeps us
             motivated—shoutout to the Diamond tier grinders!
           </blockquote>
           <p className="text-muted-foreground">— Anonymous, S+ Tier Typer</p>

@@ -1,4 +1,4 @@
-# UniversityType
+# GooseType
 
 Competitive typing platform open to students from all universities worldwide. Race through university-themed prompts, track your stats, and climb the leaderboard. ID verification required for leaderboard participation.
 
