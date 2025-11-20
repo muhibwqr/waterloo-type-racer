@@ -27,6 +27,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [faculty, setFaculty] = useState("");
+  const [schoolName, setSchoolName] = useState("");
   const [idFile, setIdFile] = useState<File | null>(null);
   const [idPreview, setIdPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +39,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const passwordValid = password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
   const facultyValid = faculty.length > 0;
+  const schoolNameValid = schoolName.length >= 2 && schoolName.length <= 100;
   const idFileValid = idFile !== null && idFile.size <= 5 * 1024 * 1024; // 5MB max
 
   const getPasswordStrength = () => {
@@ -95,6 +97,11 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       return;
     }
 
+    if (!schoolNameValid) {
+      toast.error("Please enter your school name (2-100 characters)");
+      return;
+    }
+
     if (!idFileValid) {
       toast.error("Please upload a photo of your ID (max 5MB)");
       return;
@@ -102,7 +109,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
 
     setIsLoading(true);
 
-    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username, faculty, idFile);
+    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username, faculty, schoolName, idFile);
 
     if (error) {
       if (error.message.includes("already registered")) {
@@ -183,6 +190,26 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="signup-school" className="text-foreground">School Name</Label>
+        <Input
+          id="signup-school"
+          type="text"
+          value={schoolName}
+          onChange={(e) => setSchoolName(e.target.value)}
+          placeholder="University of Example"
+          required
+          className={`h-12 bg-input border-2 ${
+            schoolName && schoolNameValid ? 'border-primary' : schoolName ? 'border-destructive' : 'border-border'
+          } focus:border-primary`}
+        />
+        {schoolName && !schoolNameValid && (
+          <p className="text-sm text-destructive flex items-center gap-1">
+            <X className="w-4 h-4" /> School name must be 2-100 characters
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">

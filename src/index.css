@@ -8,51 +8,51 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Monkeytype-inspired Dark Theme */
-    --bg-primary: 220 6% 21%; /* #323437 */
-    --bg-secondary: 220 7% 18%; /* #2c2e31 */
-    --bg-elevated: 220 6% 25%; /* #3c3e42 */
+    /* Modern Dark Theme with Teal/Blue Accents */
+    --bg-primary: 222 47% 11%; /* #0a1628 deep blue */
+    --bg-secondary: 222 40% 14%; /* #1a2332 darker blue */
+    --bg-elevated: 222 35% 18%; /* #2a3441 elevated */
     
-    --text-primary: 50 10% 80%; /* #d1d0c5 beige */
-    --text-secondary: 220 4% 40%; /* #646669 gray */
-    --text-error: 356 60% 55%; /* #ca4754 red */
-    --text-correct: 50 10% 80%; /* #d1d0c5 */
+    --text-primary: 210 20% 88%; /* #d8e0e8 light blue-gray */
+    --text-secondary: 215 16% 55%; /* #7a8490 muted */
+    --text-error: 0 84% 60%; /* #e63946 vibrant red */
+    --text-correct: 142 76% 36%; /* #06d6a0 teal green */
     
-    --accent-primary: 51 100% 50%; /* #ffd700 Waterloo gold */
-    --accent-secondary: 45 89% 48%; /* #e2b714 darker gold */
-    --caret: 51 100% 50%; /* #ffd700 gold caret */
+    --accent-primary: 195 100% 50%; /* #00d4ff bright cyan */
+    --accent-secondary: 195 85% 45%; /* #00b8e6 darker cyan */
+    --caret: 195 100% 50%; /* #00d4ff cyan caret */
     
-    --border-subtle: 220 6% 25%;
-    --border-focus: 51 100% 50%;
+    --border-subtle: 222 30% 20%;
+    --border-focus: 195 100% 50%;
     
     /* Shadcn compatibility mappings */
-    --background: 220 6% 21%;
-    --foreground: 50 10% 80%;
-    --card: 220 7% 18%;
-    --card-foreground: 50 10% 80%;
-    --popover: 220 7% 18%;
-    --popover-foreground: 50 10% 80%;
-    --primary: 51 100% 50%;
-    --primary-foreground: 220 6% 10%;
-    --secondary: 220 6% 25%;
-    --secondary-foreground: 50 10% 80%;
-    --muted: 220 6% 25%;
-    --muted-foreground: 220 4% 40%;
-    --accent: 51 100% 50%;
-    --accent-foreground: 220 6% 10%;
-    --destructive: 356 60% 55%;
-    --destructive-foreground: 50 10% 90%;
-    --border: 220 6% 25%;
-    --input: 220 7% 18%;
-    --ring: 51 100% 50%;
+    --background: 222 47% 11%;
+    --foreground: 210 20% 88%;
+    --card: 222 40% 14%;
+    --card-foreground: 210 20% 88%;
+    --popover: 222 40% 14%;
+    --popover-foreground: 210 20% 88%;
+    --primary: 195 100% 50%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 222 35% 18%;
+    --secondary-foreground: 210 20% 88%;
+    --muted: 222 30% 20%;
+    --muted-foreground: 215 16% 55%;
+    --accent: 195 100% 50%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 88%;
+    --border: 222 30% 20%;
+    --input: 222 40% 14%;
+    --ring: 195 100% 50%;
     --radius: 0.5rem;
     
     /* Chart colors */
-    --chart-1: 51 100% 50%;
-    --chart-2: 220 70% 50%;
+    --chart-1: 195 100% 50%;
+    --chart-2: 142 76% 36%;
     --chart-3: 280 60% 50%;
-    --chart-4: 120 60% 50%;
-    --chart-5: 20 60% 50%;
+    --chart-4: 45 93% 47%;
+    --chart-5: 0 84% 60%;
   }
 }
 

@@ -8,10 +8,10 @@ import {
   type ClipboardEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import CommandPalette from "@/components/CommandPalette";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
 
@@ -150,6 +150,7 @@ const TypingTest = () => {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(() => Math.floor(Math.random() * prompts.length));
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [finishReason, setFinishReason] = useState<"time" | "manual" | null>(null);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   const currentPrompt = prompts[currentPromptIndex];
 
@@ -287,7 +288,7 @@ const TypingTest = () => {
     return computeStats(typedText, currentPrompt, startTime);
   }, [computeStats, currentPrompt, finalStats, startTime, testStarted, typedText]);
 
-  const handleTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+  const handleTextChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (testFinished) {
       return;
     }
@@ -324,7 +325,7 @@ const TypingTest = () => {
   };
 
   const handlePreventClipboard = useCallback(
-    (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    (event: ClipboardEvent<HTMLInputElement>) => {
       event.preventDefault();
       toast.info("Copy, cut, and paste are disabled during the test.");
     },
@@ -491,21 +492,24 @@ const TypingTest = () => {
               </div>
             </div>
 
-            <div className="font-mono text-xl sm:text-2xl leading-relaxed min-h-[120px] sm:min-h-[160px] mb-6 whitespace-pre-wrap break-words">
-              {renderPrompt()}
+            <div className="relative mb-6">
+              <div className="font-mono text-xl sm:text-2xl leading-relaxed min-h-[120px] sm:min-h-[160px] whitespace-pre-wrap break-words">
+                {renderPrompt()}
+              </div>
+              {/* Hidden input overlay - invisible but captures all typing */}
+              <input
+                type="text"
+                value={typedText}
+                onChange={handleTextChange}
+                onPaste={handlePreventClipboard}
+                onCopy={handlePreventClipboard}
+                onCut={handlePreventClipboard}
+                disabled={testFinished}
+                autoFocus={!testFinished}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-text font-mono text-xl sm:text-2xl"
+                style={{ caretColor: 'transparent' }}
+              />
             </div>
-
-            <Textarea
-              value={typedText}
-              onChange={handleTextChange}
-              onPaste={handlePreventClipboard}
-              onCopy={handlePreventClipboard}
-              onCut={handlePreventClipboard}
-              placeholder="Start typing to begin the test..."
-              className="bg-background border-border focus-visible:ring-primary min-h-[140px] font-mono text-lg"
-              disabled={testFinished}
-              autoFocus={!testFinished}
-            />
 
             <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
               <div className="flex gap-2">
@@ -551,11 +555,11 @@ const TypingTest = () => {
           </div>
 
           <div className="mt-8 text-center space-y-2 text-sm text-muted-foreground">
-            <p>tab + enter - restart test</p>
             <p>esc or cmd + shift + p - command palette</p>
           </div>
         </div>
       </div>
+      <CommandPalette open={showCommandPalette} onOpenChange={setShowCommandPalette} />
     </main>
   );
 };

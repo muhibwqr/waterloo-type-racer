@@ -61,6 +61,7 @@ export type Database = {
           id_reviewed_at: string | null
           id_submitted_at: string | null
           id_verification_status: string | null
+          school_name: string | null
           tier: string | null
           time_spent_seconds: number | null
           total_tests: number | null
@@ -80,6 +81,7 @@ export type Database = {
           id_reviewed_at?: string | null
           id_submitted_at?: string | null
           id_verification_status?: string | null
+          school_name?: string | null
           tier?: string | null
           time_spent_seconds?: number | null
           total_tests?: number | null
@@ -99,6 +101,7 @@ export type Database = {
           id_reviewed_at?: string | null
           id_submitted_at?: string | null
           id_verification_status?: string | null
+          school_name?: string | null
           tier?: string | null
           time_spent_seconds?: number | null
           total_tests?: number | null
