@@ -56,6 +56,11 @@ export type Database = {
           created_at: string | null
           global_rank: number | null
           id: string
+          id_image_url: string | null
+          id_review_notes: string | null
+          id_reviewed_at: string | null
+          id_submitted_at: string | null
+          id_verification_status: string | null
           tier: string | null
           time_spent_seconds: number | null
           total_tests: number | null
@@ -70,6 +75,11 @@ export type Database = {
           created_at?: string | null
           global_rank?: number | null
           id: string
+          id_image_url?: string | null
+          id_review_notes?: string | null
+          id_reviewed_at?: string | null
+          id_submitted_at?: string | null
+          id_verification_status?: string | null
           tier?: string | null
           time_spent_seconds?: number | null
           total_tests?: number | null
@@ -84,6 +94,11 @@ export type Database = {
           created_at?: string | null
           global_rank?: number | null
           id?: string
+          id_image_url?: string | null
+          id_review_notes?: string | null
+          id_reviewed_at?: string | null
+          id_submitted_at?: string | null
+          id_verification_status?: string | null
           tier?: string | null
           time_spent_seconds?: number | null
           total_tests?: number | null

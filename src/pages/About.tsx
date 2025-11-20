@@ -7,7 +7,7 @@ const About = () => {
     {
       icon: Trophy,
       title: "Compete & Rank",
-      description: "Real-time leaderboards and competitive rankings tailored to Waterloo students",
+      description: "Real-time leaderboards and competitive rankings for students from all universities",
     },
     {
       icon: Zap,
@@ -21,8 +21,8 @@ const About = () => {
     },
     {
       icon: Lock,
-      title: "UWaterloo Exclusive",
-      description: "Join a community of Warriors improving their typing skills together",
+      title: "University Competition",
+      description: "Join a community of students from all universities improving their typing skills together",
     },
   ];
 
@@ -33,11 +33,11 @@ const About = () => {
         <div className="text-center max-w-4xl mx-auto mb-20 space-y-6">
           <h1 className="text-6xl md:text-7xl font-bold leading-tight">
             <span className="text-foreground">Type Faster. </span>
-            <span className="text-primary">Beat Waterloo.</span>
+            <span className="text-primary">Beat Everyone.</span>
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Competitive typing platform exclusively for University of Waterloo students
+            Competitive typing platform for students from all universities worldwide
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-8 justify-center">
@@ -61,7 +61,7 @@ const About = () => {
         {/* Features Section */}
         <div className="max-w-6xl mx-auto mb-20">
           <h2 className="text-4xl font-bold text-center mb-12 text-foreground">
-            Why Join WaterlooType?
+            Why Join UniversityType?
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -87,10 +87,10 @@ const About = () => {
         <div className="max-w-3xl mx-auto text-center space-y-6 py-16 border-t border-border">
           <div className="text-6xl text-primary mb-4">"</div>
           <blockquote className="text-2xl italic text-foreground">
-            WaterlooType turned our study sessions into a friendly competition. The leaderboard keeps us
+            UniversityType turned our study sessions into a friendly competition. The leaderboard keeps us
             motivated—shoutout to the Diamond tier grinders!
           </blockquote>
-          <p className="text-muted-foreground">— Anonymous, S+ Tier Warrior</p>
+          <p className="text-muted-foreground">— Anonymous, S+ Tier Typer</p>
           <div className="flex items-center justify-center gap-1 text-primary">
             {[...Array(5)].map((_, i) => (
               <span key={i}>★</span>
@@ -102,7 +102,7 @@ const About = () => {
         <div className="max-w-2xl mx-auto text-center mt-20 p-12 bg-primary/10 rounded-3xl border border-primary">
           <h2 className="text-3xl font-bold mb-4 text-foreground">Ready to Start?</h2>
           <p className="text-lg text-muted-foreground mb-8">
-            Join hundreds of Waterloo students improving their typing skills
+            Join hundreds of students from universities worldwide improving their typing skills
           </p>
           <Link to="/">
             <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-10 py-6">
@@ -110,7 +110,7 @@ const About = () => {
             </Button>
           </Link>
           <p className="text-sm text-muted-foreground mt-4">
-            @uwaterloo.ca email required • Free forever
+            Open to all universities • ID verification required • Free forever
           </p>
         </div>
       </div>

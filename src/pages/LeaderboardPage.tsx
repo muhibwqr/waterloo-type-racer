@@ -21,7 +21,7 @@ type DisplayRow = {
 };
 
 const totalSlots = 23;
-const placeholderName = "Waiting for a Waterloo Warrior";
+const placeholderName = "Waiting for a University Typer";
 const placeholderProgram = "Claim this spot";
 
 const LeaderboardPage = () => {
@@ -114,8 +114,9 @@ const LeaderboardPage = () => {
     if (userIds.length > 0) {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("id, username, tier, program, faculty")
-        .in("id", userIds);
+        .select("id, username, tier, program, faculty, id_verification_status")
+        .in("id", userIds)
+        .eq("id_verification_status", "approved"); // Only show approved users
 
       if (profileError) {
         console.error("Failed to fetch profile information", profileError);
@@ -137,19 +138,21 @@ const LeaderboardPage = () => {
       }
     }
 
-    const formatted: DisplayRow[] = Array.from(uniqueByUser.entries()).map(([userId, result]) => {
-      const profile = profileLookup[userId];
-      return {
-        rank: 0,
-        name: profile?.username ?? result.username ?? "Anonymous Warrior",
-        wpm: result.wpm,
-        accuracy: result.accuracy ?? null,
-        program: profile?.program ?? profile?.faculty ?? result.faculty ?? null,
-        tier: profile?.tier ?? null,
-        createdAt: result.created_at ?? null,
-        faculty: profile?.faculty ?? result.faculty ?? null,
-      };
-    });
+    const formatted: DisplayRow[] = Array.from(uniqueByUser.entries())
+      .filter(([userId]) => profileLookup[userId]) // Only include approved users
+      .map(([userId, result]) => {
+        const profile = profileLookup[userId];
+        return {
+          rank: 0,
+          name: profile?.username ?? result.username ?? "Anonymous Warrior",
+          wpm: result.wpm,
+          accuracy: result.accuracy ?? null,
+          program: profile?.program ?? profile?.faculty ?? result.faculty ?? null,
+          tier: profile?.tier ?? null,
+          createdAt: result.created_at ?? null,
+          faculty: profile?.faculty ?? result.faculty ?? null,
+        };
+      });
 
     const combined = [...formatted, ...anonymousEntries].sort((a, b) => b.wpm - a.wpm).slice(0, totalSlots);
 
@@ -316,7 +319,7 @@ const LeaderboardPage = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4 text-foreground">Leaderboard</h1>
-          <p className="text-muted-foreground text-lg">Top typers at University of Waterloo</p>
+          <p className="text-muted-foreground text-lg">Top typers across all universities</p>
         </div>
 
         {/* Filter Tabs */}

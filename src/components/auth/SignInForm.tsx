@@ -46,7 +46,7 @@ const SignInForm = ({ onSuccess }: SignInFormProps) => {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@uwaterloo.ca"
+          placeholder="you@university.edu"
           required
           className="h-12 bg-input border-border focus:border-primary focus:ring-primary"
         />

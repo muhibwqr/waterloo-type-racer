@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Check, X } from "lucide-react";
+import { Loader2, Check, X, Upload } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -27,14 +27,18 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [faculty, setFaculty] = useState("");
+  const [idFile, setIdFile] = useState<File | null>(null);
+  const [idPreview, setIdPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const normalizedEmail = email.trim();
-  const emailValid = normalizedEmail.toLowerCase().endsWith("@uwaterloo.ca");
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail.toLowerCase());
   const usernameValid = username.length >= 3 && username.length <= 20 && /^[a-zA-Z0-9_]+$/.test(username);
   const passwordValid = password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
   const facultyValid = faculty.length > 0;
+  const idFileValid = idFile !== null && idFile.size <= 5 * 1024 * 1024; // 5MB max
 
   const getPasswordStrength = () => {
     if (password.length === 0) return null;
@@ -43,11 +47,31 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
     return "medium";
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please upload an image file");
+        return;
+      }
+      setIdFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setIdPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!emailValid) {
-      toast.error("Must use a @uwaterloo.ca email");
+      toast.error("Please enter a valid email address");
       return;
     }
 
@@ -71,9 +95,14 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       return;
     }
 
+    if (!idFileValid) {
+      toast.error("Please upload a photo of your ID (max 5MB)");
+      return;
+    }
+
     setIsLoading(true);
 
-    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username, faculty);
+    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username, faculty, idFile);
 
     if (error) {
       if (error.message.includes("already registered")) {
@@ -84,7 +113,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
         toast.error(error.message);
       }
     } else {
-      toast.success("Account created! Check your email for verification.");
+      toast.success("Account created! Check your email for verification. Your ID is under review.");
       onSuccess();
       navigate("/verify-email");
     }
@@ -97,13 +126,13 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="signup-email" className="text-foreground">UWaterloo Email</Label>
+        <Label htmlFor="signup-email" className="text-foreground">Email</Label>
         <Input
           id="signup-email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@uwaterloo.ca"
+          placeholder="you@example.com"
           required
           className={`h-12 bg-input border-2 ${
             email && emailValid ? 'border-primary' : email ? 'border-destructive' : 'border-border'
@@ -111,7 +140,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
         />
         {email && !emailValid && (
           <p className="text-sm text-destructive flex items-center gap-1">
-            <X className="w-4 h-4" /> Must be a @uwaterloo.ca email
+            <X className="w-4 h-4" /> Please enter a valid email address
           </p>
         )}
       </div>
@@ -123,7 +152,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="WaterlooWarrior"
+          placeholder="YourUsername"
           required
           className={`h-12 bg-input border-2 ${
             username && usernameValid ? 'border-primary' : username ? 'border-destructive' : 'border-border'
@@ -196,6 +225,49 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
         />
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="signup-id" className="text-foreground">ID Verification</Label>
+        <div className="space-y-3">
+          <input
+            ref={fileInputRef}
+            id="signup-id"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+            required
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className={`w-full h-12 border-2 ${
+              idFileValid ? 'border-primary' : idFile ? 'border-destructive' : 'border-border'
+            }`}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            {idFile ? idFile.name : "Upload ID Photo"}
+          </Button>
+          {idPreview && (
+            <div className="relative w-full h-48 border-2 border-border rounded-lg overflow-hidden">
+              <img
+                src={idPreview}
+                alt="ID preview"
+                className="w-full h-full object-contain"
+              />
+            </div>
+          )}
+          <p className="text-sm text-muted-foreground">
+            Upload a clear photo of your government-issued ID. Your account will be reviewed within 24 hours.
+          </p>
+          {idFile && !idFileValid && (
+            <p className="text-sm text-destructive flex items-center gap-1">
+              <X className="w-4 h-4" /> File size must be less than 5MB
+            </p>
+          )}
+        </div>
+      </div>
+
       <Button
         type="submit"
         disabled={isLoading}
@@ -212,7 +284,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        Waterloo students only • Email verification required
+        Open to everyone • ID verification required • Review within 24 hours
       </p>
     </form>
   );

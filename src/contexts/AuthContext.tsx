@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, username: string, faculty: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, username: string, faculty: string, idFile: File | null) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resendVerification: () => Promise<{ error: any }>;
@@ -45,8 +45,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, username: string, faculty: string) => {
-    const { error } = await supabase.auth.signUp({
+  const signUp = async (email: string, password: string, username: string, faculty: string, idFile: File | null) => {
+    // First, sign up the user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -54,7 +55,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         emailRedirectTo: `${window.location.origin}/auth/sign-in`,
       }
     });
-    return { error };
+
+    if (authError || !authData.user) {
+      return { error: authError };
+    }
+
+    // If ID file is provided, upload it and update profile
+    if (idFile && authData.user) {
+      try {
+        // Upload ID image to Supabase Storage
+        const fileExt = idFile.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${authData.user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('id-verifications')
+          .upload(filePath, idFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error("Failed to upload ID:", uploadError);
+          // Continue anyway - user can upload later
+        } else {
+          // Store the file path (bucket is private, admins access via Supabase dashboard)
+          // For signed URL access, use: supabase.storage.from('id-verifications').createSignedUrl(filePath, 3600)
+          const fileUrl = `id-verifications/${filePath}`;
+
+          // Update profile with ID verification info
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+              id_image_url: fileUrl,
+              id_verification_status: 'pending',
+              id_submitted_at: new Date().toISOString(),
+            })
+            .eq('id', authData.user.id);
+
+          if (profileError) {
+            console.error("Failed to update profile with ID:", profileError);
+          }
+        }
+      } catch (err) {
+        console.error("Error handling ID upload:", err);
+        // Don't fail signup if ID upload fails
+      }
+    }
+
+    return { error: null };
   };
 
   const signIn = async (email: string, password: string) => {
