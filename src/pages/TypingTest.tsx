@@ -800,8 +800,6 @@ const TypingTest = () => {
             </div>
           )}
         </div>
-
-        </div>
       </div>
       <CommandPalette open={showCommandPalette} onOpenChange={setShowCommandPalette} />
     </main>
