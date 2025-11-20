@@ -14,7 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CommandPalette from "@/components/CommandPalette";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { TrendingUp, Target, Clock, Zap, BarChart3 } from "lucide-react";
+import { TrendingUp, Target, Clock, Zap, BarChart3, Trophy } from "lucide-react";
+import { computeTierFromWpm } from "@/lib/stats";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
 
@@ -162,18 +163,22 @@ const TypingTest = () => {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
   const timeSeriesIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [totalMistakes, setTotalMistakes] = useState(0);
 
   const currentPrompt = prompts[currentPromptIndex];
 
   const timeOptions = useMemo(() => [15, 30, 60], []);
 
-  const computeStats = useCallback((text: string, promptText: string, startedAt: number | null): Stats => {
+  const computeStats = useCallback((text: string, promptText: string, startedAt: number | null, mistakes: number = 0): Stats => {
     const totalChars = text.length;
     let correctChars = 0;
+    let incorrectChars = 0;
 
     for (let index = 0; index < text.length; index += 1) {
       if (text[index] === promptText[index]) {
         correctChars += 1;
+      } else {
+        incorrectChars += 1;
       }
     }
 
@@ -182,7 +187,15 @@ const TypingTest = () => {
     const elapsedMs = startedAt ? Math.max(now - startedAt, 0) : 0;
     const elapsedMinutes = elapsedMs > 0 ? elapsedMs / 60000 : 0;
     const wpm = elapsedMinutes > 0 && words > 0 ? Math.round(words / elapsedMinutes) : 0;
-    const accuracy = totalChars > 0 ? (correctChars / totalChars) * 100 : 100;
+    
+    // Calculate accuracy based on correct characters vs total expected characters
+    // Account for mistakes made (including corrected ones)
+    const totalExpectedChars = promptText.length;
+    const totalCharsWithMistakes = correctChars + incorrectChars + mistakes;
+    // Accuracy = correct characters / (correct + incorrect + mistakes)
+    const accuracy = totalCharsWithMistakes > 0 
+      ? (correctChars / totalCharsWithMistakes) * 100 
+      : 100;
 
     return {
       wpm,
@@ -218,6 +231,16 @@ const TypingTest = () => {
       setTestFinished(true);
       setFinishReason(reason);
       setTimeLeft(0);
+      
+      // Announce tier
+      const tier = computeTierFromWpm(stats.wpm);
+      toast.success(
+        `${tier} Tier - ${stats.wpm} WPM @ ${stats.accuracy.toFixed(1)}% accuracy`,
+        { 
+          duration: 5000,
+          icon: <Trophy className="w-5 h-5 text-primary" />,
+        }
+      );
       
       // Clear time series interval
       if (timeSeriesIntervalRef.current) {
@@ -514,192 +537,238 @@ const TypingTest = () => {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          <div className="bg-card rounded-2xl p-8 shadow-lg border border-border">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-              <div className="bg-secondary/40 rounded-xl p-4 text-center">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Time Left</p>
-                <p className="text-2xl font-semibold text-foreground">{timeLeft}s</p>
-              </div>
-              <div className="bg-secondary/40 rounded-xl p-4 text-center">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Words Per Minute</p>
-                <p className="text-2xl font-semibold text-foreground">{liveStats.wpm}</p>
+          {testFinished && finalStats ? (
+            /* Test Results - Statistics and Graph */
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Test Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Statistics Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-secondary/40 rounded-lg p-4 text-center">
+                    <Zap className="w-5 h-5 text-primary mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground mb-1">WPM</p>
+                    <p className="text-2xl font-bold text-foreground">{finalStats.wpm}</p>
+                  </div>
+                  <div className="bg-secondary/40 rounded-lg p-4 text-center">
+                    <Target className="w-5 h-5 text-primary mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                    <p className="text-2xl font-bold text-foreground">{finalStats.accuracy.toFixed(1)}%</p>
+                  </div>
+                  <div className="bg-secondary/40 rounded-lg p-4 text-center">
+                    <TrendingUp className="w-5 h-5 text-primary mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground mb-1">Words</p>
+                    <p className="text-2xl font-bold text-foreground">{finalStats.words}</p>
+                  </div>
+                  <div className="bg-secondary/40 rounded-lg p-4 text-center">
+                    <Clock className="w-5 h-5 text-primary mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground mb-1">Time</p>
+                    <p className="text-2xl font-bold text-foreground">{(finalStats.elapsedMs / 1000).toFixed(1)}s</p>
+                  </div>
                 </div>
-              <div className="bg-secondary/40 rounded-xl p-4 text-center">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Accuracy</p>
-                <p className="text-2xl font-semibold text-foreground">{liveStats.accuracy.toFixed(1)}%</p>
-              </div>
-            </div>
 
-            <div className="relative mb-6">
-              <div className="font-mono text-xl sm:text-2xl leading-relaxed min-h-[120px] sm:min-h-[160px] whitespace-pre-wrap break-words">
-                {renderPrompt()}
-              </div>
-              {/* Hidden input overlay - invisible but captures all typing */}
-              <input
-                type="text"
-                value={typedText}
-                onChange={handleTextChange}
-                onPaste={handlePreventClipboard}
-                onCopy={handlePreventClipboard}
-                onCut={handlePreventClipboard}
-                disabled={testFinished}
-                autoFocus={!testFinished}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-text font-mono text-xl sm:text-2xl"
-                style={{ caretColor: 'transparent' }}
-              />
-          </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => handleRestart()}>
-                  Restart
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    handleRestart({ nextPrompt: true });
-                  }}
-                >
-                  New Prompt
-                </Button>
-                {testStarted && (
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      if (!typedPromptExactly) {
-                        toast.info("Type the full prompt accurately to finish early.");
-                        return;
-                      }
-                      finishTest("manual");
-                    }}
-                  >
-                    Finish Test
-                  </Button>
-                )}
-          </div>
-              <Button
-                onClick={handleSaveScore}
-                disabled={!user || !canUploadScore || isSaving}
-                className="min-w-[140px]"
-              >
-                {user ? (isSaving ? "Uploading..." : "Upload Score") : "Sign up to Upload"}
-              </Button>
-            </div>
-            {!user && (
-              <p className="text-xs text-muted-foreground text-right mt-2">
-                Anyone can type; sign in or create an account to upload scores.
-              </p>
-            )}
-          </div>
-
-          {/* Test Results - Statistics and Graph */}
-          {testFinished && finalStats && (
-            <div className="max-w-4xl mx-auto mt-8">
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-primary" />
-                    Test Results
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Statistics Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-secondary/40 rounded-lg p-4 text-center">
-                      <Zap className="w-5 h-5 text-primary mx-auto mb-2" />
-                      <p className="text-xs text-muted-foreground mb-1">WPM</p>
-                      <p className="text-2xl font-bold text-foreground">{finalStats.wpm}</p>
-                    </div>
-                    <div className="bg-secondary/40 rounded-lg p-4 text-center">
-                      <Target className="w-5 h-5 text-primary mx-auto mb-2" />
-                      <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
-                      <p className="text-2xl font-bold text-foreground">{finalStats.accuracy.toFixed(1)}%</p>
-                    </div>
-                    <div className="bg-secondary/40 rounded-lg p-4 text-center">
-                      <TrendingUp className="w-5 h-5 text-primary mx-auto mb-2" />
-                      <p className="text-xs text-muted-foreground mb-1">Words</p>
-                      <p className="text-2xl font-bold text-foreground">{finalStats.words}</p>
-                    </div>
-                    <div className="bg-secondary/40 rounded-lg p-4 text-center">
-                      <Clock className="w-5 h-5 text-primary mx-auto mb-2" />
-                      <p className="text-xs text-muted-foreground mb-1">Time</p>
-                      <p className="text-2xl font-bold text-foreground">{(finalStats.elapsedMs / 1000).toFixed(1)}s</p>
-                    </div>
+                {/* Character Statistics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-secondary/20 rounded-lg p-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Total Characters</p>
+                    <p className="text-lg font-semibold text-foreground">{finalStats.totalChars}</p>
                   </div>
-
-                  {/* Character Statistics */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-secondary/20 rounded-lg p-3 text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Total Characters</p>
-                      <p className="text-lg font-semibold text-foreground">{finalStats.totalChars}</p>
-                    </div>
-                    <div className="bg-secondary/20 rounded-lg p-3 text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Correct</p>
-                      <p className="text-lg font-semibold text-green-400">{finalStats.correctChars}</p>
-                    </div>
-                    <div className="bg-secondary/20 rounded-lg p-3 text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Incorrect</p>
-                      <p className="text-lg font-semibold text-red-400">{finalStats.totalChars - finalStats.correctChars}</p>
-                    </div>
-                    <div className="bg-secondary/20 rounded-lg p-3 text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Characters/sec</p>
-                      <p className="text-lg font-semibold text-foreground">
-                        {finalStats.elapsedMs > 0
-                          ? ((finalStats.totalChars / finalStats.elapsedMs) * 1000).toFixed(1)
-                          : "0"}
-                      </p>
-                    </div>
+                  <div className="bg-secondary/20 rounded-lg p-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Correct</p>
+                    <p className="text-lg font-semibold text-green-400">{finalStats.correctChars}</p>
                   </div>
+                  <div className="bg-secondary/20 rounded-lg p-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Incorrect</p>
+                    <p className="text-lg font-semibold text-red-400">{finalStats.totalChars - finalStats.correctChars}</p>
+                  </div>
+                  <div className="bg-secondary/20 rounded-lg p-3 text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Characters/sec</p>
+                    <p className="text-lg font-semibold text-foreground">
+                      {finalStats.elapsedMs > 0
+                        ? ((finalStats.totalChars / finalStats.elapsedMs) * 1000).toFixed(1)
+                        : "0"}
+                    </p>
+                  </div>
+                </div>
 
-                  {/* Performance Graph */}
-                  {timeSeriesData.length > 0 && (
-                    <div className="bg-secondary/20 rounded-lg p-4">
-                      <h3 className="text-lg font-semibold mb-4 text-foreground">Performance Over Time</h3>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={timeSeriesData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                {/* Performance Graph */}
+                {timeSeriesData.length > 0 && (
+                  <div className="bg-secondary/20 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold mb-6 text-foreground">Performance Over Time</h3>
+                    <div className="w-full" style={{ minHeight: '350px' }}>
+                      <ResponsiveContainer width="100%" height={350}>
+                        <LineChart 
+                          data={timeSeriesData}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                           <XAxis
                             dataKey="time"
-                            label={{ value: "Time (seconds)", position: "insideBottom", offset: -5 }}
+                            label={{ value: "Time (seconds)", position: "insideBottom", offset: -10, style: { fill: "hsl(var(--muted-foreground))" } }}
                             stroke="hsl(var(--muted-foreground))"
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
+                            tickMargin={8}
                           />
                           <YAxis
-                            label={{ value: "WPM", angle: -90, position: "insideLeft" }}
+                            label={{ value: "WPM / Accuracy", angle: -90, position: "insideLeft", style: { fill: "hsl(var(--muted-foreground))" } }}
                             stroke="hsl(var(--muted-foreground))"
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
+                            tickMargin={8}
+                            domain={[0, 'dataMax + 10']}
                           />
                           <Tooltip
                             contentStyle={{
                               backgroundColor: "hsl(var(--card))",
                               border: "1px solid hsl(var(--border))",
                               borderRadius: "0.5rem",
+                              padding: "8px 12px",
                             }}
-                            labelStyle={{ color: "hsl(var(--foreground))" }}
+                            labelStyle={{ color: "hsl(var(--foreground))", marginBottom: "4px" }}
+                            itemStyle={{ color: "hsl(var(--foreground))" }}
                           />
-                          <Legend />
+                          <Legend 
+                            wrapperStyle={{ paddingTop: "20px" }}
+                            iconType="line"
+                          />
                           <Line
                             type="monotone"
                             dataKey="wpm"
                             stroke="hsl(var(--primary))"
-                            strokeWidth={2}
-                            dot={{ fill: "hsl(var(--primary))", r: 3 }}
+                            strokeWidth={2.5}
+                            dot={{ fill: "hsl(var(--primary))", r: 4, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                            activeDot={{ r: 6 }}
                             name="WPM"
                           />
                           <Line
                             type="monotone"
                             dataKey="accuracy"
                             stroke="hsl(142 76% 36%)"
-                            strokeWidth={2}
-                            dot={{ fill: "hsl(142 76% 36%)", r: 3 }}
+                            strokeWidth={2.5}
+                            dot={{ fill: "hsl(142 76% 36%)", r: 4, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                            activeDot={{ r: 6 }}
                             name="Accuracy %"
                           />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => handleRestart()}>
+                      Restart
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        handleRestart({ nextPrompt: true });
+                      }}
+                    >
+                      New Prompt
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={handleSaveScore}
+                    disabled={!user || !canUploadScore || isSaving}
+                    className="min-w-[140px]"
+                  >
+                    {user ? (isSaving ? "Uploading..." : "Upload Score") : "Sign up to Upload"}
+                  </Button>
+                </div>
+                {!user && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Anyone can type; sign in or create an account to upload scores.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            /* Typing Test Area */
+            <div className="bg-card rounded-2xl p-8 shadow-lg border border-border">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                <div className="bg-secondary/40 rounded-xl p-4 text-center">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Time Left</p>
+                  <p className="text-2xl font-semibold text-foreground">{timeLeft}s</p>
+                </div>
+                <div className="bg-secondary/40 rounded-xl p-4 text-center">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Words Per Minute</p>
+                  <p className="text-2xl font-semibold text-foreground">{liveStats.wpm}</p>
+                </div>
+                <div className="bg-secondary/40 rounded-xl p-4 text-center">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Accuracy</p>
+                  <p className="text-2xl font-semibold text-foreground">{liveStats.accuracy.toFixed(1)}%</p>
+                </div>
+              </div>
+
+              <div className="relative mb-6">
+                <div className="font-mono text-xl sm:text-2xl leading-relaxed min-h-[120px] sm:min-h-[160px] whitespace-pre-wrap break-words">
+                  {renderPrompt()}
+                </div>
+                {/* Hidden input overlay - invisible but captures all typing */}
+                <input
+                  type="text"
+                  value={typedText}
+                  onChange={handleTextChange}
+                  onPaste={handlePreventClipboard}
+                  onCopy={handlePreventClipboard}
+                  onCut={handlePreventClipboard}
+                  disabled={testFinished}
+                  autoFocus={!testFinished}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-text font-mono text-xl sm:text-2xl"
+                  style={{ caretColor: 'transparent' }}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => handleRestart()}>
+                    Restart
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      handleRestart({ nextPrompt: true });
+                    }}
+                  >
+                    New Prompt
+                  </Button>
+                  {testStarted && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        if (!typedPromptExactly) {
+                          toast.info("Type the full prompt accurately to finish early.");
+                          return;
+                        }
+                        finishTest("manual");
+                      }}
+                    >
+                      Finish Test
+                    </Button>
+            )}
+          </div>
+                <Button
+                  onClick={handleSaveScore}
+                  disabled={!user || !canUploadScore || isSaving}
+                  className="min-w-[140px]"
+                >
+                  {user ? (isSaving ? "Uploading..." : "Upload Score") : "Sign up to Upload"}
+                </Button>
+          </div>
+          {!user && (
+                <p className="text-xs text-muted-foreground text-right mt-2">
+                  Anyone can type; sign in or create an account to upload scores.
+              </p>
+              )}
             </div>
           )}
+        </div>
 
         </div>
       </div>
