@@ -131,9 +131,9 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const strength = getPasswordStrength();
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="signup-email" className="text-foreground">Email</Label>
+        <Label htmlFor="signup-email" className="text-foreground text-sm sm:text-base">Email</Label>
         <Input
           id="signup-email"
           type="email"
@@ -141,7 +141,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
           required
-          className={`h-12 bg-input border-2 ${
+          className={`h-10 sm:h-12 text-sm sm:text-base bg-input border-2 ${
             email && emailValid ? 'border-primary' : email ? 'border-destructive' : 'border-border'
           } focus:border-primary`}
         />
@@ -153,7 +153,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="signup-username" className="text-foreground">Username</Label>
+        <Label htmlFor="signup-username" className="text-foreground text-sm sm:text-base">Username</Label>
         <Input
           id="signup-username"
           type="text"
@@ -161,7 +161,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
           onChange={(e) => setUsername(e.target.value)}
           placeholder="YourUsername"
           required
-          className={`h-12 bg-input border-2 ${
+          className={`h-10 sm:h-12 text-sm sm:text-base bg-input border-2 ${
             username && usernameValid ? 'border-primary' : username ? 'border-destructive' : 'border-border'
           } focus:border-primary`}
         />
@@ -174,11 +174,11 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="signup-faculty" className="text-foreground">Faculty</Label>
+        <Label htmlFor="signup-faculty" className="text-foreground text-sm sm:text-base">Faculty</Label>
         <Select value={faculty} onValueChange={setFaculty}>
           <SelectTrigger
             id="signup-faculty"
-            className={`h-12 bg-input border-2 ${faculty ? 'border-primary' : 'border-border'} focus:border-primary`}
+            className={`h-10 sm:h-12 text-sm sm:text-base bg-input border-2 ${faculty ? 'border-primary' : 'border-border'} focus:border-primary`}
           >
             <SelectValue placeholder="Select your faculty" />
           </SelectTrigger>
@@ -193,7 +193,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="signup-school" className="text-foreground">School Name</Label>
+        <Label htmlFor="signup-school" className="text-foreground text-sm sm:text-base">School Name</Label>
         <Input
           id="signup-school"
           type="text"
@@ -201,7 +201,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
           onChange={(e) => setSchoolName(e.target.value)}
           placeholder="University of Example"
           required
-          className={`h-12 bg-input border-2 ${
+          className={`h-10 sm:h-12 text-sm sm:text-base bg-input border-2 ${
             schoolName && schoolNameValid ? 'border-primary' : schoolName ? 'border-destructive' : 'border-border'
           } focus:border-primary`}
         />
@@ -213,7 +213,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="signup-password" className="text-foreground">Password</Label>
+        <Label htmlFor="signup-password" className="text-foreground text-sm sm:text-base">Password</Label>
         <Input
           id="signup-password"
           type="password"
@@ -221,7 +221,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Enter password"
           required
-          className="h-12 bg-input border-border focus:border-primary"
+          className="h-10 sm:h-12 text-sm sm:text-base bg-input border-border focus:border-primary"
         />
         {password && (
           <>
@@ -238,7 +238,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="signup-confirm" className="text-foreground">Confirm Password</Label>
+        <Label htmlFor="signup-confirm" className="text-foreground text-sm sm:text-base">Confirm Password</Label>
         <Input
           id="signup-confirm"
           type="password"
@@ -246,15 +246,15 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm password"
           required
-          className={`h-12 bg-input border-2 ${
+          className={`h-10 sm:h-12 text-sm sm:text-base bg-input border-2 ${
             confirmPassword && passwordsMatch ? 'border-primary' : confirmPassword ? 'border-destructive' : 'border-border'
           } focus:border-primary`}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="signup-id" className="text-foreground">ID Verification</Label>
-        <div className="space-y-3">
+        <Label htmlFor="signup-id" className="text-foreground text-sm sm:text-base">ID Verification</Label>
+        <div className="space-y-2 sm:space-y-3">
           <input
             ref={fileInputRef}
             id="signup-id"
@@ -268,15 +268,15 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
             type="button"
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
-            className={`w-full h-12 border-2 ${
+            className={`w-full h-10 sm:h-12 text-sm sm:text-base border-2 ${
               idFileValid ? 'border-primary' : idFile ? 'border-destructive' : 'border-border'
             }`}
           >
-            <Upload className="mr-2 h-4 w-4" />
-            {idFile ? idFile.name : "Upload ID Photo"}
+            <Upload className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="truncate">{idFile ? idFile.name : "Upload ID Photo"}</span>
           </Button>
           {idPreview && (
-            <div className="relative w-full h-48 border-2 border-border rounded-lg overflow-hidden">
+            <div className="relative w-full h-32 sm:h-48 border-2 border-border rounded-lg overflow-hidden">
               <img
                 src={idPreview}
                 alt="ID preview"
@@ -298,11 +298,11 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       <Button
         type="submit"
         disabled={isLoading}
-        className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+        className="w-full h-10 sm:h-12 text-sm sm:text-base bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
       >
         {isLoading ? (
           <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
             Creating account...
           </>
         ) : (
@@ -310,7 +310,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
         )}
       </Button>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-xs sm:text-sm text-muted-foreground px-2">
         Open to everyone • ID verification required • Review within 24 hours
       </p>
     </form>

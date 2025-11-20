@@ -14,17 +14,17 @@ const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px] bg-card border-border max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">
+      <DialogContent className="w-[95vw] max-w-[500px] bg-card border-border max-h-[95vh] overflow-y-auto">
+        <DialogHeader className="sticky top-0 bg-card z-10 pb-2 border-b border-border">
+          <DialogTitle className="text-xl sm:text-2xl font-bold text-foreground">
             {activeTab === "signin" ? "Sign In" : "Create Account"}
           </DialogTitle>
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="signin">Sign In</TabsTrigger>
-            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 mb-4 sm:mb-6">
+            <TabsTrigger value="signin" className="text-sm sm:text-base">Sign In</TabsTrigger>
+            <TabsTrigger value="signup" className="text-sm sm:text-base">Sign Up</TabsTrigger>
           </TabsList>
           
           <TabsContent value="signin" className="mt-0">
