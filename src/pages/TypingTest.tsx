@@ -414,7 +414,7 @@ const TypingTest = () => {
     setIsSaving(true);
     const { data: profileRow } = await supabase
       .from("profiles")
-      .select("username, faculty, id_verification_status")
+      .select("username, id_verification_status")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -450,7 +450,6 @@ const TypingTest = () => {
         missed_chars: missedChars,
         consistency: null,
         username: profileRow?.username ?? user.user_metadata?.username ?? user.email?.split("@")[0],
-        faculty: profileRow?.faculty ?? user.user_metadata?.faculty ?? null,
       });
 
       if (error) {

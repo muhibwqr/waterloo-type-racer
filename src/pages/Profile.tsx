@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FACULTY_OPTIONS } from "@/constants/faculties";
 import { toast } from "sonner";
 
 type ProfileRow = {
@@ -33,7 +32,6 @@ type ProfileRow = {
   username: string;
   tier: string | null;
   program: string | null;
-  faculty: string | null;
   best_wpm?: number | null;
   best_accuracy?: number | null;
   average_wpm?: number | null;
@@ -59,7 +57,6 @@ const Profile = () => {
   const [error, setError] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editUsername, setEditUsername] = useState("");
-  const [editFaculty, setEditFaculty] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
   const fetchProfileData = useCallback(async () => {
@@ -153,13 +150,11 @@ const Profile = () => {
 
   const openEditDialog = () => {
     setEditUsername(profile?.username ?? user.email?.split("@")[0] ?? "");
-    setEditFaculty(profile?.faculty ?? "");
     setIsEditOpen(true);
   };
 
   const usernameValid =
     editUsername.length >= 3 && editUsername.length <= 20 && /^[a-zA-Z0-9_]+$/.test(editUsername);
-  const facultyValid = editFaculty.length > 0;
 
   const handleSaveProfile = async () => {
     if (!user?.id) return;
@@ -167,17 +162,10 @@ const Profile = () => {
       toast.error("Username must be 3-20 characters (letters, numbers, underscore only)");
       return;
     }
-    if (!facultyValid) {
-      toast.error("Select your faculty");
-      return;
-    }
 
     const updates: Record<string, string> = {};
     if (editUsername !== profile?.username) {
       updates.username = editUsername;
-    }
-    if (editFaculty !== (profile?.faculty ?? "")) {
-      updates.faculty = editFaculty;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -190,7 +178,7 @@ const Profile = () => {
     const { error: updateError } = await supabase.from("profiles").update(updates).eq("id", user.id);
 
     const { error: userMetadataError } = await supabase.auth.updateUser({
-      data: { username: editUsername, faculty: editFaculty },
+      data: { username: editUsername },
     });
 
     if (updateError || userMetadataError) {
@@ -258,9 +246,6 @@ const Profile = () => {
           <Badge className="bg-primary/20 text-primary border-primary/30 text-lg px-4 py-1">
             {tierLabel} TIER
           </Badge>
-          <p className="text-muted-foreground mt-4">
-            Faculty: {profile?.faculty ?? "Add your faculty"}
-          </p>
           <p className="text-sm text-muted-foreground">
             Member since{" "}
             {profile?.created_at
@@ -352,7 +337,7 @@ const Profile = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Profile</DialogTitle>
-            <DialogDescription>Update your display name and faculty.</DialogDescription>
+            <DialogDescription>Update your display name.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
@@ -373,29 +358,12 @@ const Profile = () => {
                 </p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-faculty" className="text-foreground">
-                Faculty
-              </Label>
-              <Select value={editFaculty} onValueChange={setEditFaculty}>
-                <SelectTrigger id="edit-faculty" className="h-11">
-                  <SelectValue placeholder="Select faculty" />
-                </SelectTrigger>
-                <SelectContent>
-                  {FACULTY_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" onClick={() => setIsEditOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveProfile} disabled={savingProfile || !usernameValid || !facultyValid}>
+            <Button onClick={handleSaveProfile} disabled={savingProfile || !usernameValid}>
               {savingProfile ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

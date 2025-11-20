@@ -17,7 +17,6 @@ type DisplayRow = {
   tier: string | null;
   isPlaceholder?: boolean;
   createdAt: string | null;
-  faculty?: string | null;
   school_name?: string | null;
 };
 
@@ -43,14 +42,13 @@ const LeaderboardPage = () => {
       accuracy: number;
       created_at: string | null;
       username?: string | null;
-      faculty?: string | null;
     };
 
     let includeTestMetadata = true;
 
     let { data, error } = await supabase
       .from("typing_tests")
-      .select("user_id, wpm, accuracy, created_at, username, faculty")
+      .select("user_id, wpm, accuracy, created_at, username")
       .order("wpm", { ascending: false })
       .limit(200);
 
@@ -76,7 +74,7 @@ const LeaderboardPage = () => {
 
     const uniqueByUser = new Map<
       string,
-      { wpm: number; accuracy: number; created_at: string | null; username: string | null; faculty: string | null }
+      { wpm: number; accuracy: number; created_at: string | null; username: string | null }
     >();
     const anonymousEntries: DisplayRow[] = [];
 
@@ -87,10 +85,9 @@ const LeaderboardPage = () => {
           name: entry.username ?? "Anonymous Typer",
           wpm: entry.wpm,
           accuracy: entry.accuracy,
-          program: entry.faculty ?? null,
+          program: null,
           tier: null,
           createdAt: entry.created_at,
-          faculty: entry.faculty ?? null,
         });
         return;
       }
@@ -101,7 +98,6 @@ const LeaderboardPage = () => {
           accuracy: entry.accuracy,
           created_at: entry.created_at,
           username: includeTestMetadata ? entry.username ?? null : null,
-          faculty: includeTestMetadata ? entry.faculty ?? null : null,
         });
       }
     });
@@ -109,13 +105,13 @@ const LeaderboardPage = () => {
     const userIds = Array.from(uniqueByUser.keys());
     let profileLookup: Record<
       string,
-      { username: string | null; tier: string | null; program: string | null; faculty: string | null; school_name: string | null }
+      { username: string | null; tier: string | null; program: string | null; school_name: string | null }
     > = {};
 
     if (userIds.length > 0) {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("id, username, tier, program, faculty, school_name, id_verification_status")
+        .select("id, username, tier, program, school_name, id_verification_status")
         .in("id", userIds)
         .eq("id_verification_status", "approved"); // Only show approved users
 
@@ -125,14 +121,13 @@ const LeaderboardPage = () => {
         profileLookup = (profileData ?? []).reduce<
           Record<
             string,
-            { username: string | null; tier: string | null; program: string | null; faculty: string | null; school_name: string | null }
+            { username: string | null; tier: string | null; program: string | null; school_name: string | null }
           >
         >((acc, profile) => {
           acc[profile.id] = {
             username: profile.username,
             tier: profile.tier,
             program: profile.program,
-            faculty: profile.faculty,
             school_name: profile.school_name,
           };
           return acc;
@@ -149,10 +144,9 @@ const LeaderboardPage = () => {
           name: profile?.username ?? result.username ?? "Anonymous Typer",
           wpm: result.wpm,
           accuracy: result.accuracy ?? null,
-          program: profile?.program ?? profile?.faculty ?? result.faculty ?? null,
+          program: profile?.program ?? null,
           tier: profile?.tier ?? null,
           createdAt: result.created_at ?? null,
-          faculty: profile?.faculty ?? result.faculty ?? null,
           school_name: profile?.school_name ?? null,
         };
       });
@@ -242,7 +236,6 @@ const LeaderboardPage = () => {
           tier: computeTierFromWpm(avgWpm),
           createdAt: null,
           isPlaceholder: false,
-          faculty: null,
           school_name: schoolName,
         };
       });
@@ -269,7 +262,6 @@ const LeaderboardPage = () => {
         tier: null,
         isPlaceholder: true,
         createdAt: null,
-        faculty: null,
       }));
 
       return [...sorted, ...placeholders];
@@ -299,7 +291,6 @@ const LeaderboardPage = () => {
       tier: null,
       isPlaceholder: true,
       createdAt: null,
-      faculty: null,
     }));
 
     const ranked = [...sortedEnriched, ...placeholderEntries].map((entry, index) => ({

@@ -6,14 +6,6 @@ import { Loader2, Check, X, Upload } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { FACULTY_OPTIONS } from "@/constants/faculties";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface SignUpFormProps {
   onSuccess: () => void;
@@ -26,7 +18,6 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [faculty, setFaculty] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [idFile, setIdFile] = useState<File | null>(null);
   const [idPreview, setIdPreview] = useState<string | null>(null);
@@ -38,7 +29,6 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const usernameValid = username.length >= 3 && username.length <= 20 && /^[a-zA-Z0-9_]+$/.test(username);
   const passwordValid = password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
-  const facultyValid = faculty.length > 0;
   const schoolNameValid = schoolName.length >= 2 && schoolName.length <= 100;
   const idFileValid = idFile !== null && idFile.size <= 5 * 1024 * 1024; // 5MB max
 
@@ -92,11 +82,6 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       return;
     }
 
-    if (!facultyValid) {
-      toast.error("Please choose your faculty");
-      return;
-    }
-
     if (!schoolNameValid) {
       toast.error("Please enter your school name (2-100 characters)");
       return;
@@ -109,7 +94,7 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
 
     setIsLoading(true);
 
-    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username, faculty, schoolName, idFile);
+    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username, schoolName, idFile);
 
     if (error) {
       if (error.message.includes("already registered")) {
@@ -171,25 +156,6 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
             3-20 chars, alphanumeric + underscore only
           </p>
         )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="signup-faculty" className="text-foreground text-sm sm:text-base">Faculty</Label>
-        <Select value={faculty} onValueChange={setFaculty}>
-          <SelectTrigger
-            id="signup-faculty"
-            className={`h-10 sm:h-12 text-sm sm:text-base bg-input border-2 ${faculty ? 'border-primary' : 'border-border'} focus:border-primary`}
-          >
-            <SelectValue placeholder="Select your faculty" />
-          </SelectTrigger>
-          <SelectContent>
-            {FACULTY_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="space-y-2">
