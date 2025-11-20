@@ -8,10 +8,13 @@ import {
   type ClipboardEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CommandPalette from "@/components/CommandPalette";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { TrendingUp, Target, Clock, Zap, BarChart3 } from "lucide-react";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
 
@@ -22,6 +25,12 @@ type Stats = {
   totalChars: number;
   words: number;
   elapsedMs: number;
+};
+
+type TimeSeriesPoint = {
+  time: number; // seconds elapsed
+  wpm: number;
+  accuracy: number;
 };
 
 const prompts = [
@@ -151,6 +160,8 @@ const TypingTest = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [finishReason, setFinishReason] = useState<"time" | "manual" | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
+  const timeSeriesIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentPrompt = prompts[currentPromptIndex];
 
@@ -207,6 +218,12 @@ const TypingTest = () => {
       setTestFinished(true);
       setFinishReason(reason);
       setTimeLeft(0);
+      
+      // Clear time series interval
+      if (timeSeriesIntervalRef.current) {
+        clearInterval(timeSeriesIntervalRef.current);
+        timeSeriesIntervalRef.current = null;
+      }
     },
     [computeStats, currentPrompt, startTime, testFinished, typedText],
   );
@@ -244,6 +261,7 @@ const TypingTest = () => {
       setFinalStats(null);
       setTimeLeft(options?.nextDuration ?? duration);
       setFinishReason(null);
+      setTimeSeriesData([]);
 
       if (options?.nextPrompt) {
         setCurrentPromptIndex((previous) => getRandomPromptIndex(previous));
@@ -256,6 +274,22 @@ const TypingTest = () => {
     if (!testStarted || !startTime) {
       return;
     }
+
+    // Track time series data every second
+    timeSeriesIntervalRef.current = setInterval(() => {
+      if (startTime && typedText.length > 0) {
+        const elapsedSeconds = (Date.now() - startTime) / 1000;
+        const currentStats = computeStats(typedText, currentPrompt, startTime);
+        setTimeSeriesData((prev) => [
+          ...prev,
+          {
+            time: Math.round(elapsedSeconds),
+            wpm: currentStats.wpm,
+            accuracy: currentStats.accuracy,
+          },
+        ]);
+      }
+    }, 1000);
 
     timerRef.current = setInterval(() => {
       setTimeLeft((previous) => {
@@ -272,8 +306,12 @@ const TypingTest = () => {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      if (timeSeriesIntervalRef.current) {
+        clearInterval(timeSeriesIntervalRef.current);
+        timeSeriesIntervalRef.current = null;
+      }
     };
-  }, [duration, finishTest, startTime, testStarted]);
+  }, [duration, finishTest, startTime, testStarted, typedText, currentPrompt, computeStats]);
 
   useEffect(() => {
     if (!testStarted) {
@@ -509,7 +547,7 @@ const TypingTest = () => {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-text font-mono text-xl sm:text-2xl"
                 style={{ caretColor: 'transparent' }}
               />
-            </div>
+          </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
               <div className="flex gap-2">
@@ -538,7 +576,7 @@ const TypingTest = () => {
                     Finish Test
                   </Button>
                 )}
-              </div>
+          </div>
               <Button
                 onClick={handleSaveScore}
                 disabled={!user || !canUploadScore || isSaving}
@@ -553,6 +591,115 @@ const TypingTest = () => {
               </p>
             )}
           </div>
+
+          {/* Test Results - Statistics and Graph */}
+          {testFinished && finalStats && (
+            <div className="max-w-4xl mx-auto mt-8">
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-primary" />
+                    Test Results
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Statistics Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-secondary/40 rounded-lg p-4 text-center">
+                      <Zap className="w-5 h-5 text-primary mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground mb-1">WPM</p>
+                      <p className="text-2xl font-bold text-foreground">{finalStats.wpm}</p>
+                    </div>
+                    <div className="bg-secondary/40 rounded-lg p-4 text-center">
+                      <Target className="w-5 h-5 text-primary mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                      <p className="text-2xl font-bold text-foreground">{finalStats.accuracy.toFixed(1)}%</p>
+                    </div>
+                    <div className="bg-secondary/40 rounded-lg p-4 text-center">
+                      <TrendingUp className="w-5 h-5 text-primary mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground mb-1">Words</p>
+                      <p className="text-2xl font-bold text-foreground">{finalStats.words}</p>
+                    </div>
+                    <div className="bg-secondary/40 rounded-lg p-4 text-center">
+                      <Clock className="w-5 h-5 text-primary mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground mb-1">Time</p>
+                      <p className="text-2xl font-bold text-foreground">{(finalStats.elapsedMs / 1000).toFixed(1)}s</p>
+                    </div>
+                  </div>
+
+                  {/* Character Statistics */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-secondary/20 rounded-lg p-3 text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Total Characters</p>
+                      <p className="text-lg font-semibold text-foreground">{finalStats.totalChars}</p>
+                    </div>
+                    <div className="bg-secondary/20 rounded-lg p-3 text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Correct</p>
+                      <p className="text-lg font-semibold text-green-400">{finalStats.correctChars}</p>
+                    </div>
+                    <div className="bg-secondary/20 rounded-lg p-3 text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Incorrect</p>
+                      <p className="text-lg font-semibold text-red-400">{finalStats.totalChars - finalStats.correctChars}</p>
+                    </div>
+                    <div className="bg-secondary/20 rounded-lg p-3 text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Characters/sec</p>
+                      <p className="text-lg font-semibold text-foreground">
+                        {finalStats.elapsedMs > 0
+                          ? ((finalStats.totalChars / finalStats.elapsedMs) * 1000).toFixed(1)
+                          : "0"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Performance Graph */}
+                  {timeSeriesData.length > 0 && (
+                    <div className="bg-secondary/20 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold mb-4 text-foreground">Performance Over Time</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <LineChart data={timeSeriesData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis
+                            dataKey="time"
+                            label={{ value: "Time (seconds)", position: "insideBottom", offset: -5 }}
+                            stroke="hsl(var(--muted-foreground))"
+                          />
+                          <YAxis
+                            label={{ value: "WPM", angle: -90, position: "insideLeft" }}
+                            stroke="hsl(var(--muted-foreground))"
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: "0.5rem",
+                            }}
+                            labelStyle={{ color: "hsl(var(--foreground))" }}
+                          />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="wpm"
+                            stroke="hsl(var(--primary))"
+                            strokeWidth={2}
+                            dot={{ fill: "hsl(var(--primary))", r: 3 }}
+                            name="WPM"
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="accuracy"
+                            stroke="hsl(142 76% 36%)"
+                            strokeWidth={2}
+                            dot={{ fill: "hsl(142 76% 36%)", r: 3 }}
+                            name="Accuracy %"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
         </div>
       </div>
