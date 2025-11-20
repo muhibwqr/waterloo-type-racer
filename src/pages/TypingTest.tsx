@@ -554,9 +554,6 @@ const TypingTest = () => {
             )}
           </div>
 
-          <div className="mt-8 text-center space-y-2 text-sm text-muted-foreground">
-            <p>esc or cmd + shift + p - command palette</p>
-          </div>
         </div>
       </div>
       <CommandPalette open={showCommandPalette} onOpenChange={setShowCommandPalette} />

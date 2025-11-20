@@ -18,6 +18,7 @@ type DisplayRow = {
   isPlaceholder?: boolean;
   createdAt: string | null;
   faculty?: string | null;
+  school_name?: string | null;
 };
 
 const totalSlots = 23;
@@ -27,7 +28,7 @@ const placeholderProgram = "Claim this spot";
 const LeaderboardPage = () => {
   const [search, setSearch] = useState("");
   const [timeFilter, setTimeFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"users" | "faculties">("users");
+  const [viewMode, setViewMode] = useState<"users" | "universities">("users");
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<DisplayRow[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -83,7 +84,7 @@ const LeaderboardPage = () => {
       if (!entry.user_id) {
         anonymousEntries.push({
           rank: 0,
-          name: entry.username ?? "Anonymous Warrior",
+          name: entry.username ?? "Anonymous Typer",
           wpm: entry.wpm,
           accuracy: entry.accuracy,
           program: entry.faculty ?? null,
@@ -108,13 +109,13 @@ const LeaderboardPage = () => {
     const userIds = Array.from(uniqueByUser.keys());
     let profileLookup: Record<
       string,
-      { username: string | null; tier: string | null; program: string | null; faculty: string | null }
+      { username: string | null; tier: string | null; program: string | null; faculty: string | null; school_name: string | null }
     > = {};
 
     if (userIds.length > 0) {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("id, username, tier, program, faculty, id_verification_status")
+        .select("id, username, tier, program, faculty, school_name, id_verification_status")
         .in("id", userIds)
         .eq("id_verification_status", "approved"); // Only show approved users
 
@@ -124,7 +125,7 @@ const LeaderboardPage = () => {
         profileLookup = (profileData ?? []).reduce<
           Record<
             string,
-            { username: string | null; tier: string | null; program: string | null; faculty: string | null }
+            { username: string | null; tier: string | null; program: string | null; faculty: string | null; school_name: string | null }
           >
         >((acc, profile) => {
           acc[profile.id] = {
@@ -132,6 +133,7 @@ const LeaderboardPage = () => {
             tier: profile.tier,
             program: profile.program,
             faculty: profile.faculty,
+            school_name: profile.school_name,
           };
           return acc;
         }, {});
@@ -144,13 +146,14 @@ const LeaderboardPage = () => {
         const profile = profileLookup[userId];
         return {
           rank: 0,
-          name: profile?.username ?? result.username ?? "Anonymous Warrior",
+          name: profile?.username ?? result.username ?? "Anonymous Typer",
           wpm: result.wpm,
           accuracy: result.accuracy ?? null,
           program: profile?.program ?? profile?.faculty ?? result.faculty ?? null,
           tier: profile?.tier ?? null,
           createdAt: result.created_at ?? null,
           faculty: profile?.faculty ?? result.faculty ?? null,
+          school_name: profile?.school_name ?? null,
         };
       });
 
@@ -215,27 +218,36 @@ const LeaderboardPage = () => {
       return entry.name.toLowerCase().includes(query);
     });
 
-    if (viewMode === "faculties") {
-      const grouped = searchedRows.reduce<Record<string, DisplayRow>>((acc, entry) => {
-        const key = entry.faculty ?? entry.program ?? "Unknown Faculty";
-        const existing = acc[key];
-        if (!existing || entry.wpm > existing.wpm) {
-          acc[key] = {
-            rank: 0,
-            name: key,
-            wpm: entry.wpm,
-            accuracy: entry.accuracy,
-            program: key,
-            tier: entry.tier ?? computeTierFromWpm(entry.wpm),
-            createdAt: entry.createdAt,
-            isPlaceholder: false,
-            faculty: key,
-          };
+    if (viewMode === "universities") {
+      // Group by school_name and calculate average WPM
+      const schoolGroups = searchedRows.reduce<Record<string, { wpmSum: number; count: number; entries: DisplayRow[] }>>((acc, entry) => {
+        const key = entry.school_name ?? "Unknown University";
+        if (!acc[key]) {
+          acc[key] = { wpmSum: 0, count: 0, entries: [] };
         }
+        acc[key].wpmSum += entry.wpm;
+        acc[key].count += 1;
+        acc[key].entries.push(entry);
         return acc;
       }, {});
 
-      const sorted = Object.values(grouped)
+      const grouped: DisplayRow[] = Object.entries(schoolGroups).map(([schoolName, data]) => {
+        const avgWpm = Math.round(data.wpmSum / data.count);
+        return {
+          rank: 0,
+          name: schoolName,
+          wpm: avgWpm,
+          accuracy: null, // Average accuracy could be calculated if needed
+          program: schoolName,
+          tier: computeTierFromWpm(avgWpm),
+          createdAt: null,
+          isPlaceholder: false,
+          faculty: null,
+          school_name: schoolName,
+        };
+      });
+
+      const sorted = grouped
         .sort((a, b) => b.wpm - a.wpm)
         .slice(0, totalSlots)
         .map((entry, index) => ({
@@ -310,8 +322,8 @@ const LeaderboardPage = () => {
     return "bg-muted text-muted-foreground border-border";
   };
 
-  const placeholderBadgeLabel = viewMode === "faculties" ? "Awaiting Faculty" : "Awaiting Warrior";
-  const searchPlaceholder = viewMode === "faculties" ? "Search faculties..." : "Search users...";
+  const placeholderBadgeLabel = viewMode === "universities" ? "Awaiting University" : "Awaiting Typer";
+  const searchPlaceholder = viewMode === "universities" ? "Search universities..." : "Search users...";
 
   return (
     <main className="min-h-screen pt-32 pb-20">
@@ -352,12 +364,12 @@ const LeaderboardPage = () => {
             User Leaderboard
           </Button>
           <Button
-            variant={viewMode === "faculties" ? "default" : "outline"}
+            variant={viewMode === "universities" ? "default" : "outline"}
             size="sm"
-            onClick={() => setViewMode("faculties")}
-            aria-pressed={viewMode === "faculties"}
+            onClick={() => setViewMode("universities")}
+            aria-pressed={viewMode === "universities"}
           >
-            Faculty Leaderboard
+            University Leaderboard
           </Button>
         </div>
 
@@ -433,8 +445,8 @@ const LeaderboardPage = () => {
                     >
                       {isPlaceholder
                         ? placeholderBadgeLabel
-                        : viewMode === "faculties"
-                        ? "Top Faculty"
+                        : viewMode === "universities"
+                        ? "Avg WPM"
                         : `${user.tier ?? "D"} Tier`}
                     </Badge>
                     <div className="text-4xl font-bold text-primary">
@@ -474,14 +486,14 @@ const LeaderboardPage = () => {
                 </div>
                 {user.isPlaceholder ? (
                   <div className="text-right text-muted-foreground text-sm">
-                    {viewMode === "faculties"
-                      ? "Be the first to represent your faculty."
+                    {viewMode === "universities"
+                      ? "Be the first to represent your university."
                       : "Waiting on your record-breaking run"}
                   </div>
                 ) : (
                 <div className="flex items-center gap-6">
                     <Badge className={getTierColor(user.tier ?? "D")}>
-                      {viewMode === "faculties" ? "Top Faculty" : user.tier ?? "D"}
+                      {viewMode === "universities" ? "Avg WPM" : user.tier ?? "D"}
                     </Badge>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-primary">{user.wpm} WPM</div>
