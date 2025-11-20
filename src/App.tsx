@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import TypingTest from "@/pages/TypingTest";
 import Leaderboard from "@/pages/LeaderboardPage";
 import Profile from "@/pages/Profile";
@@ -22,16 +23,19 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <div className="min-h-screen bg-background">
+          <div className="min-h-screen bg-background flex flex-col">
             <Navigation />
-            <Routes>
-              <Route path="/" element={<TypingTest />} />
-              <Route path="/leaderboard" element={<Leaderboard />} />
-              <Route path="/profile/:username?" element={<Profile />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/verify-email" element={<EmailVerification />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <main className="flex-1">
+              <Routes>
+                <Route path="/" element={<TypingTest />} />
+                <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/profile/:username?" element={<Profile />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/verify-email" element={<EmailVerification />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+            <Footer />
           </div>
         </BrowserRouter>
       </AuthProvider>
