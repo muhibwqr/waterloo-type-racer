@@ -163,7 +163,9 @@ const TypingTest = () => {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
   const timeSeriesIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [totalMistakes, setTotalMistakes] = useState(0);
+  const totalMistakesRef = useRef(0);
+  const previousTypedLengthRef = useRef(0);
+  const [finalTotalMistakes, setFinalTotalMistakes] = useState(0);
 
   const currentPrompt = prompts[currentPromptIndex];
 
@@ -188,13 +190,12 @@ const TypingTest = () => {
     const elapsedMinutes = elapsedMs > 0 ? elapsedMs / 60000 : 0;
     const wpm = elapsedMinutes > 0 && words > 0 ? Math.round(words / elapsedMinutes) : 0;
     
-    // Calculate accuracy based on correct characters vs total expected characters
-    // Account for mistakes made (including corrected ones)
-    const totalExpectedChars = promptText.length;
-    const totalCharsWithMistakes = correctChars + incorrectChars + mistakes;
-    // Accuracy = correct characters / (correct + incorrect + mistakes)
-    const accuracy = totalCharsWithMistakes > 0 
-      ? (correctChars / totalCharsWithMistakes) * 100 
+    // Calculate accuracy based on correct characters vs total characters typed (including mistakes)
+    // Total characters typed = correct + incorrect + mistakes (corrected errors)
+    const totalCharsTyped = correctChars + incorrectChars + mistakes;
+    // Accuracy = correct characters / total characters typed
+    const accuracy = totalCharsTyped > 0 
+      ? (correctChars / totalCharsTyped) * 100 
       : 100;
 
     return {
@@ -221,8 +222,10 @@ const TypingTest = () => {
       }
 
       const finalTypedText = finalText ?? typedText;
-      const stats = computeStats(finalTypedText, currentPrompt, startTime);
+      const mistakes = totalMistakesRef.current;
+      const stats = computeStats(finalTypedText, currentPrompt, startTime, mistakes);
       setFinalStats(stats);
+      setFinalTotalMistakes(mistakes);
       // Lock the typed text to the exact prompt when completed
       if (finalTypedText === currentPrompt) {
         setTypedText(currentPrompt);
@@ -285,6 +288,9 @@ const TypingTest = () => {
       setTimeLeft(options?.nextDuration ?? duration);
       setFinishReason(null);
       setTimeSeriesData([]);
+      totalMistakesRef.current = 0;
+      previousTypedLengthRef.current = 0;
+      setFinalTotalMistakes(0);
 
       if (options?.nextPrompt) {
         setCurrentPromptIndex((previous) => getRandomPromptIndex(previous));
@@ -302,15 +308,22 @@ const TypingTest = () => {
     timeSeriesIntervalRef.current = setInterval(() => {
       if (startTime && typedText.length > 0) {
         const elapsedSeconds = (Date.now() - startTime) / 1000;
-        const currentStats = computeStats(typedText, currentPrompt, startTime);
-        setTimeSeriesData((prev) => [
-          ...prev,
-          {
-            time: Math.round(elapsedSeconds),
-            wpm: currentStats.wpm,
-            accuracy: currentStats.accuracy,
-          },
-        ]);
+        const currentStats = computeStats(typedText, currentPrompt, startTime, totalMistakesRef.current);
+        setTimeSeriesData((prev) => {
+          // Avoid duplicate entries for the same second
+          const roundedTime = Math.round(elapsedSeconds);
+          if (prev.length > 0 && prev[prev.length - 1].time === roundedTime) {
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              time: roundedTime,
+              wpm: currentStats.wpm,
+              accuracy: currentStats.accuracy,
+            },
+          ];
+        });
       }
     }, 1000);
 
@@ -346,7 +359,7 @@ const TypingTest = () => {
     if (!testStarted || !startTime) {
       return finalStats ?? initialStats;
     }
-    return computeStats(typedText, currentPrompt, startTime);
+    return computeStats(typedText, currentPrompt, startTime, totalMistakesRef.current);
   }, [computeStats, currentPrompt, finalStats, startTime, testStarted, typedText]);
 
   const handleTextChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -368,14 +381,35 @@ const TypingTest = () => {
       setTestFinished(false);
       setStartTime(now);
       setFinalStats(null);
+      setTimeSeriesData([]);
+      totalMistakesRef.current = 0;
+      previousTypedLengthRef.current = 0;
       effectiveStart = now;
     }
     
+    // Track mistakes: every time a character is typed incorrectly, count it
+    const previousLength = previousTypedLengthRef.current;
+    const currentLength = value.length;
+    
+    // If typing forward (not backspacing)
+    if (currentLength > previousLength) {
+      const newCharIndex = currentLength - 1;
+      const expectedChar = currentPrompt[newCharIndex];
+      const typedChar = value[newCharIndex];
+      
+      // If the newly typed character is wrong, count it as a mistake
+      if (typedChar !== expectedChar) {
+        totalMistakesRef.current += 1;
+      }
+    }
+    // If backspacing, we don't need to do anything - mistakes are already counted
+    
+    previousTypedLengthRef.current = currentLength;
     setTypedText(value);
 
     // If the prompt is completed accurately, finish immediately
     if (value === currentPrompt && effectiveStart) {
-      const stats = computeStats(value, currentPrompt, effectiveStart);
+      const stats = computeStats(value, currentPrompt, effectiveStart, totalMistakesRef.current);
       finishTest("manual", value);
       if (user) {
         void handleSaveScore({ auto: true, statsOverride: stats });
@@ -581,8 +615,8 @@ const TypingTest = () => {
                     <p className="text-lg font-semibold text-green-400">{finalStats.correctChars}</p>
                   </div>
                   <div className="bg-secondary/20 rounded-lg p-3 text-center">
-                    <p className="text-xs text-muted-foreground mb-1">Incorrect</p>
-                    <p className="text-lg font-semibold text-red-400">{finalStats.totalChars - finalStats.correctChars}</p>
+                    <p className="text-xs text-muted-foreground mb-1">Total Mistakes</p>
+                    <p className="text-lg font-semibold text-red-400">{finalTotalMistakes}</p>
                   </div>
                   <div className="bg-secondary/20 rounded-lg p-3 text-center">
                     <p className="text-xs text-muted-foreground mb-1">Characters/sec</p>
@@ -595,10 +629,10 @@ const TypingTest = () => {
                 </div>
 
                 {/* Performance Graph */}
-                {timeSeriesData.length > 0 && (
-                  <div className="bg-secondary/20 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-6 text-foreground">Performance Over Time</h3>
-                    <div className="w-full" style={{ minHeight: '350px' }}>
+                <div className="bg-secondary/20 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold mb-6 text-foreground">Performance Over Time</h3>
+                  <div className="w-full" style={{ minHeight: '350px' }}>
+                    {timeSeriesData.length > 0 ? (
                       <ResponsiveContainer width="100%" height={350}>
                         <LineChart 
                           data={timeSeriesData}
@@ -653,31 +687,29 @@ const TypingTest = () => {
                           />
                         </LineChart>
                       </ResponsiveContainer>
-                    </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                        <p>No performance data available</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => handleRestart()}>
-                      Restart
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        handleRestart({ nextPrompt: true });
-                      }}
-                    >
-                      New Prompt
-                    </Button>
-                  </div>
                   <Button
                     onClick={handleSaveScore}
                     disabled={!user || !canUploadScore || isSaving}
+                    variant="outline"
                     className="min-w-[140px]"
                   >
                     {user ? (isSaving ? "Uploading..." : "Upload Score") : "Sign up to Upload"}
+                  </Button>
+                  <Button
+                    onClick={() => handleRestart({ nextPrompt: true })}
+                    className="min-w-[140px]"
+                  >
+                    Take New Test
                   </Button>
                 </div>
                 {!user && (
