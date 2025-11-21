@@ -455,7 +455,7 @@ const TypingTest = () => {
     // Check verification status
     if (profileRow?.id_verification_status !== "approved") {
       if (profileRow?.id_verification_status === "pending") {
-        toast.info("Your ID is under review. You'll be able to upload scores once approved (within 24 hours).");
+        toast.info("Your ID is under review. You'll be able to upload scores and appear on the leaderboard once approved (within 24 hours).");
       } else if (profileRow?.id_verification_status === "rejected") {
         toast.error("Your ID verification was rejected. Please contact support.");
       } else {
