@@ -12,7 +12,7 @@ const Footer = () => {
             <p>
               If you don't see your school, or want a feature fixed, please{" "}
               <a
-                href="mailto:contact@goosetype.com"
+                href="mailto:m7waqar@uwaterloo.ca"
                 className="text-primary hover:underline inline-flex items-center gap-1"
               >
                 <Mail className="w-3 h-3" />
