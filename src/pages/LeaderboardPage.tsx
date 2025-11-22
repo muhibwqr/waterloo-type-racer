@@ -99,17 +99,10 @@ const LeaderboardPage = () => {
     void initialize();
 
     const channel = supabase
-      .channel("typing-tests-leaderboard")
+      .channel("leaderboard-updates")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "typing_tests" },
-        () => {
-          void loadLeaderboard();
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
+        { event: "*", schema: "public", table: "leaderboard" },
         () => {
           void loadLeaderboard();
         },
