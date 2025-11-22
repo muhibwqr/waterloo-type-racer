@@ -72,6 +72,7 @@ const LeaderboardPage = () => {
 
     const rowsWithMetadata = (data ?? []) as BaseTestRow[];
 
+    // Map to store the BEST score for each user (since data is already ordered by WPM desc)
     const uniqueByUser = new Map<
       string,
       { wpm: number; accuracy: number; created_at: string | null; username: string | null }
@@ -92,6 +93,8 @@ const LeaderboardPage = () => {
         return;
       }
 
+      // Keep only the best (highest WPM) score for each user
+      // Since data is ordered by WPM descending, first entry is best
       if (!uniqueByUser.has(entry.user_id)) {
         uniqueByUser.set(entry.user_id, {
           wpm: entry.wpm,
@@ -99,6 +102,17 @@ const LeaderboardPage = () => {
           created_at: entry.created_at,
           username: includeTestMetadata ? entry.username ?? null : null,
         });
+      } else {
+        // If user already exists, only update if this score is better
+        const existing = uniqueByUser.get(entry.user_id)!;
+        if (entry.wpm > existing.wpm) {
+          uniqueByUser.set(entry.user_id, {
+            wpm: entry.wpm,
+            accuracy: entry.accuracy,
+            created_at: entry.created_at,
+            username: includeTestMetadata ? entry.username ?? null : existing.username,
+          });
+        }
       }
     });
 
@@ -182,7 +196,17 @@ const LeaderboardPage = () => {
       });
 
     // Only include verified users - exclude anonymous entries
-    const combined = formatted.sort((a, b) => b.wpm - a.wpm).slice(0, totalSlots);
+    // Sort by WPM descending and assign ranks
+    const sorted = formatted.sort((a, b) => b.wpm - a.wpm);
+    const combined = sorted
+      .map((row, index) => ({
+        ...row,
+        rank: index + 1,
+      }))
+      .slice(0, totalSlots);
+
+    console.log(`Leaderboard loaded: ${combined.length} users displayed`);
+    console.log(`WPM range: ${combined.length > 0 ? `${combined[combined.length - 1].wpm} - ${combined[0].wpm}` : 'N/A'}`);
 
     setRows(combined);
     setLoading(false);
