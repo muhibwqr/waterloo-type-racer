@@ -107,12 +107,35 @@ const LeaderboardPage = () => {
       string,
       { username: string | null; tier: string | null; program: string | null; school_name: string | null }
     > = {};
+    let verifiedUserIdsSet = new Set<string>();
 
     if (userIds.length > 0) {
+      // Get verified user IDs (users with confirmed emails)
+      const { data: verifiedUserIds, error: verifiedError } = await supabase.rpc('get_verified_user_ids');
+      
+      if (verifiedError) {
+        console.error("Failed to fetch verified user IDs", verifiedError);
+        // If RPC fails, don't filter - show all users (fallback)
+        verifiedUserIdsSet = new Set(userIds);
+      } else {
+        // Filter to only verified users
+        verifiedUserIdsSet = new Set(
+          verifiedUserIds?.map((row: { user_id: string }) => row.user_id) ?? []
+        );
+      }
+
+      const verifiedUserIdsArray = userIds.filter(id => verifiedUserIdsSet.has(id));
+
+      if (verifiedUserIdsArray.length === 0) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("id, username, tier, program, school_name")
-        .in("id", userIds);
+        .in("id", verifiedUserIdsArray);
 
       if (profileError) {
         console.error("Failed to fetch profile information", profileError);
@@ -135,7 +158,7 @@ const LeaderboardPage = () => {
     }
 
     const formatted: DisplayRow[] = Array.from(uniqueByUser.entries())
-      .filter(([userId]) => profileLookup[userId]) // Only include approved users
+      .filter(([userId]) => profileLookup[userId] && verifiedUserIdsSet.has(userId)) // Only include verified users with profiles
       .map(([userId, result]) => {
         const profile = profileLookup[userId];
         return {
@@ -150,7 +173,8 @@ const LeaderboardPage = () => {
         };
       });
 
-    const combined = [...formatted, ...anonymousEntries].sort((a, b) => b.wpm - a.wpm).slice(0, totalSlots);
+    // Only include verified users - exclude anonymous entries
+    const combined = formatted.sort((a, b) => b.wpm - a.wpm).slice(0, totalSlots);
 
     setRows(combined);
     setLoading(false);
