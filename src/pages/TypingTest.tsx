@@ -370,9 +370,6 @@ const TypingTest = () => {
       return;
     }
 
-    // Add more lines as user types
-    addMoreLines();
-
     timerRef.current = setInterval(() => {
       setTimeLeft((previous) => {
         if (previous <= 1) {
@@ -389,7 +386,7 @@ const TypingTest = () => {
         timerRef.current = null;
       }
     };
-  }, [duration, finishTest, startTime, testStarted, typedText, addMoreLines]);
+  }, [finishTest, startTime, testStarted]);
 
   useEffect(() => {
     if (!testStarted) {
