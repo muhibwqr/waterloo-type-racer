@@ -6,7 +6,7 @@ SECURITY DEFINER
 AS $$
 BEGIN
   RETURN QUERY
-  SELECT au.id
+  SELECT au.id AS user_id
   FROM auth.users au
   WHERE au.email_confirmed_at IS NOT NULL;
 END;

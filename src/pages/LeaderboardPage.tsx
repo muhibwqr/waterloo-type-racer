@@ -115,18 +115,26 @@ const LeaderboardPage = () => {
       
       if (verifiedError) {
         console.error("Failed to fetch verified user IDs", verifiedError);
-        // If RPC fails, don't filter - show all users (fallback)
+        // If RPC fails (e.g., function doesn't exist), show all users as fallback
+        // This allows the leaderboard to work even if migration hasn't been run
+        console.warn("Falling back to showing all users - RPC function may not exist. Please run the migration.");
         verifiedUserIdsSet = new Set(userIds);
       } else {
         // Filter to only verified users
         verifiedUserIdsSet = new Set(
           verifiedUserIds?.map((row: { user_id: string }) => row.user_id) ?? []
         );
+        console.log(`Found ${verifiedUserIdsSet.size} verified users out of ${userIds.length} total users`);
       }
 
       const verifiedUserIdsArray = userIds.filter(id => verifiedUserIdsSet.has(id));
+      
+      console.log(`User IDs from typing tests: ${userIds.length}`);
+      console.log(`Verified user IDs: ${verifiedUserIdsSet.size}`);
+      console.log(`Matching verified users: ${verifiedUserIdsArray.length}`);
 
       if (verifiedUserIdsArray.length === 0) {
+        console.warn("No verified users found with typing tests. Leaderboard will be empty.");
         setRows([]);
         setLoading(false);
         return;
