@@ -13,8 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CommandPalette from "@/components/CommandPalette";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { TrendingUp, Target, Clock, Zap, BarChart3, Trophy } from "lucide-react";
+import { TrendingUp, Target, Clock, Zap, Trophy } from "lucide-react";
 import { computeTierFromWpm } from "@/lib/stats";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
@@ -28,11 +27,6 @@ type Stats = {
   elapsedMs: number;
 };
 
-type TimeSeriesPoint = {
-  time: number; // seconds elapsed
-  wpm: number;
-  accuracy: number;
-};
 
 const prompts = [
   "University where your GPA tries to survive longer than your motivation",
@@ -161,13 +155,87 @@ const TypingTest = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [finishReason, setFinishReason] = useState<"time" | "manual" | null>(null);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
-  const timeSeriesIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const totalMistakesRef = useRef(0);
   const previousTypedLengthRef = useRef(0);
   const [finalTotalMistakes, setFinalTotalMistakes] = useState(0);
+  const [currentPromptLines, setCurrentPromptLines] = useState<string[]>([]);
+  const [fullPrompt, setFullPrompt] = useState("");
 
-  const currentPrompt = prompts[currentPromptIndex];
+  // Generate infinite prompt by combining prompts
+  const generateInfinitePrompt = useCallback(() => {
+    let fullText = "";
+    const lines: string[] = [];
+    let lineCount = 0;
+    let promptIndex = currentPromptIndex;
+    
+    // Generate at least 2 lines to start
+    while (lines.length < 2 || fullText.length < 200) {
+      const prompt = prompts[promptIndex % prompts.length];
+      fullText += (fullText ? " " : "") + prompt;
+      lines.push(prompt);
+      promptIndex++;
+    }
+    
+    return { fullText, lines };
+  }, [currentPromptIndex]);
+
+  // Initialize prompt on mount and when prompt changes
+  useEffect(() => {
+    const { fullText, lines } = generateInfinitePrompt();
+    setFullPrompt(fullText);
+    setCurrentPromptLines(lines);
+  }, [generateInfinitePrompt]);
+
+  // Add more lines when user gets close to the end
+  const addMoreLines = useCallback(() => {
+    const currentLength = typedText.length;
+    const currentPromptLength = fullPrompt.length;
+    
+    // If user is within 50 characters of the end, add more lines
+    if (currentLength > currentPromptLength - 50) {
+      const newLines: string[] = [];
+      let newText = fullPrompt;
+      let promptIndex = (currentPromptIndex + currentPromptLines.length) % prompts.length;
+      
+      // Add 2 more lines
+      for (let i = 0; i < 2; i++) {
+        const prompt = prompts[promptIndex % prompts.length];
+        newText += " " + prompt;
+        newLines.push(prompt);
+        promptIndex++;
+      }
+      
+      setFullPrompt(newText);
+      setCurrentPromptLines([...currentPromptLines, ...newLines]);
+    }
+  }, [typedText.length, fullPrompt, currentPromptIndex, currentPromptLines, prompts]);
+
+  // Get the visible prompt (2 lines at a time, scrolling as user types)
+  const visiblePrompt = useMemo(() => {
+    if (currentPromptLines.length === 0) return "";
+    
+    // Find which line the user is currently on based on typed text length
+    let charCount = 0;
+    let currentLineIndex = 0;
+    
+    for (let i = 0; i < currentPromptLines.length; i++) {
+      const lineLength = currentPromptLines[i].length + (i > 0 ? 1 : 0); // +1 for space between lines
+      if (typedText.length < charCount + lineLength) {
+        currentLineIndex = i;
+        break;
+      }
+      charCount += lineLength;
+      currentLineIndex = i + 1; // User has passed this line
+    }
+    
+    // Show 2 lines starting from the line the user is currently typing
+    const startLine = Math.max(0, Math.min(currentLineIndex, currentPromptLines.length - 2));
+    const endLine = Math.min(currentPromptLines.length, startLine + 2);
+    return currentPromptLines.slice(startLine, endLine).join(" ");
+  }, [currentPromptLines, typedText.length]);
+
+  // Get the full prompt for comparison
+  const currentPrompt = fullPrompt;
 
   const timeOptions = useMemo(() => [15, 30, 60], []);
 
@@ -245,11 +313,6 @@ const TypingTest = () => {
         }
       );
       
-      // Clear time series interval
-      if (timeSeriesIntervalRef.current) {
-        clearInterval(timeSeriesIntervalRef.current);
-        timeSeriesIntervalRef.current = null;
-      }
     },
     [computeStats, currentPrompt, startTime, testFinished, typedText],
   );
@@ -287,10 +350,13 @@ const TypingTest = () => {
       setFinalStats(null);
       setTimeLeft(options?.nextDuration ?? duration);
       setFinishReason(null);
-      setTimeSeriesData([]);
       totalMistakesRef.current = 0;
       previousTypedLengthRef.current = 0;
       setFinalTotalMistakes(0);
+      // Reset prompt
+      const { fullText, lines } = generateInfinitePrompt();
+      setFullPrompt(fullText);
+      setCurrentPromptLines(lines);
 
       if (options?.nextPrompt) {
         setCurrentPromptIndex((previous) => getRandomPromptIndex(previous));
@@ -304,28 +370,8 @@ const TypingTest = () => {
       return;
     }
 
-    // Track time series data every second
-    timeSeriesIntervalRef.current = setInterval(() => {
-      if (startTime && typedText.length > 0) {
-        const elapsedSeconds = (Date.now() - startTime) / 1000;
-        const currentStats = computeStats(typedText, currentPrompt, startTime, totalMistakesRef.current);
-        setTimeSeriesData((prev) => {
-          // Avoid duplicate entries for the same second
-          const roundedTime = Math.round(elapsedSeconds);
-          if (prev.length > 0 && prev[prev.length - 1].time === roundedTime) {
-            return prev;
-          }
-          return [
-            ...prev,
-            {
-              time: roundedTime,
-              wpm: currentStats.wpm,
-              accuracy: currentStats.accuracy,
-            },
-          ];
-        });
-      }
-    }, 1000);
+    // Add more lines as user types
+    addMoreLines();
 
     timerRef.current = setInterval(() => {
       setTimeLeft((previous) => {
@@ -342,12 +388,8 @@ const TypingTest = () => {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      if (timeSeriesIntervalRef.current) {
-        clearInterval(timeSeriesIntervalRef.current);
-        timeSeriesIntervalRef.current = null;
-      }
     };
-  }, [duration, finishTest, startTime, testStarted, typedText, currentPrompt, computeStats]);
+  }, [duration, finishTest, startTime, testStarted, typedText, addMoreLines]);
 
   useEffect(() => {
     if (!testStarted) {
@@ -367,11 +409,12 @@ const TypingTest = () => {
       return;
     }
 
-    let value = event.target.value;
+    const value = event.target.value;
     
-    // Limit input to prompt length
-    if (value.length > currentPrompt.length) {
-      value = value.slice(0, currentPrompt.length);
+    // No length limit - infinite typing
+    // Add more lines as user types
+    if (value.length > typedText.length) {
+      addMoreLines();
     }
 
     let effectiveStart = startTime;
@@ -381,7 +424,6 @@ const TypingTest = () => {
       setTestFinished(false);
       setStartTime(now);
       setFinalStats(null);
-      setTimeSeriesData([]);
       totalMistakesRef.current = 0;
       previousTypedLengthRef.current = 0;
       effectiveStart = now;
@@ -394,7 +436,8 @@ const TypingTest = () => {
     // If typing forward (not backspacing)
     if (currentLength > previousLength) {
       const newCharIndex = currentLength - 1;
-      const expectedChar = currentPrompt[newCharIndex];
+      // Compare against full prompt (which grows infinitely)
+      const expectedChar = fullPrompt[newCharIndex] || " ";
       const typedChar = value[newCharIndex];
       
       // If the newly typed character is wrong, count it as a mistake
@@ -406,17 +449,8 @@ const TypingTest = () => {
     
     previousTypedLengthRef.current = currentLength;
     setTypedText(value);
-
-    // If the prompt is completed accurately, finish immediately
-    if (value === currentPrompt && effectiveStart) {
-      const stats = computeStats(value, currentPrompt, effectiveStart, totalMistakesRef.current);
-      finishTest("manual", value);
-      if (user) {
-        void handleSaveScore({ auto: true, statsOverride: stats });
-      } else {
-        toast.info("Sign in to upload your result.");
-      }
-    }
+    
+    // Don't auto-submit - let user type infinitely until time runs out
   };
 
   const handlePreventClipboard = useCallback(
@@ -448,22 +482,9 @@ const TypingTest = () => {
     setIsSaving(true);
     const { data: profileRow } = await supabase
       .from("profiles")
-      .select("username, id_verification_status")
+      .select("username")
       .eq("id", user.id)
       .maybeSingle();
-
-    // Check verification status
-    if (profileRow?.id_verification_status !== "approved") {
-      if (profileRow?.id_verification_status === "pending") {
-        toast.info("Your ID is under review. You'll be able to upload scores and appear on the leaderboard once approved (within 24 hours).");
-      } else if (profileRow?.id_verification_status === "rejected") {
-        toast.error("Your ID verification was rejected. Please contact support.");
-      } else {
-        toast.info("Please complete ID verification to upload scores and appear on the leaderboard.");
-      }
-      setIsSaving(false);
-      return;
-    }
     const incorrectChars = Math.max(statsForUpload.totalChars - statsForUpload.correctChars, 0);
     const extraChars = Math.max(statsForUpload.totalChars - currentPrompt.length, 0);
     const missedChars = Math.max(currentPrompt.length - statsForUpload.totalChars, 0);
@@ -500,20 +521,57 @@ const TypingTest = () => {
   };
 
   const renderPrompt = () => {
-    return currentPrompt.split("").map((character, index) => {
-      const typedCharacter = typedText[index];
-      const isCurrent = index === typedText.length && testStarted && !testFinished;
+    // Calculate which part of the full prompt corresponds to the visible 2 lines
+    let charCount = 0;
+    let startCharIndex = 0;
+    let visibleCharCount = 0;
+    
+    // Find the start character index for the visible 2-line chunk
+    let currentLineIndex = 0;
+    for (let i = 0; i < currentPromptLines.length; i++) {
+      const lineLength = currentPromptLines[i].length + (i > 0 ? 1 : 0);
+      if (typedText.length < charCount + lineLength) {
+        currentLineIndex = i;
+        break;
+      }
+      charCount += lineLength;
+      currentLineIndex = i + 1;
+    }
+    
+    // Calculate start index for visible chunk (2 lines before current or at start)
+    const startLine = Math.max(0, Math.min(currentLineIndex, currentPromptLines.length - 2));
+    startCharIndex = 0;
+    for (let i = 0; i < startLine; i++) {
+      startCharIndex += currentPromptLines[i].length + (i > 0 ? 1 : 0);
+    }
+    
+    // Calculate visible character count (2 lines)
+    const endLine = Math.min(currentPromptLines.length, startLine + 2);
+    visibleCharCount = 0;
+    for (let i = startLine; i < endLine; i++) {
+      visibleCharCount += currentPromptLines[i].length + (i > startLine ? 1 : 0);
+    }
+    
+    // Get the visible portion of the full prompt
+    const visiblePortion = fullPrompt.slice(startCharIndex, startCharIndex + visibleCharCount);
+    
+    return visiblePortion.split("").map((character, localIndex) => {
+      const globalIndex = startCharIndex + localIndex;
+      const typedCharacter = typedText[globalIndex];
+      const isCurrent = globalIndex === typedText.length && testStarted && !testFinished;
       let characterClass = "text-muted-foreground";
 
       if (typedCharacter !== undefined) {
-        characterClass = typedCharacter === character ? "text-primary" : "text-destructive";
+        // Compare against full prompt for accuracy
+        const expectedChar = fullPrompt[globalIndex];
+        characterClass = typedCharacter === expectedChar ? "text-primary" : "text-destructive";
       } else if (isCurrent) {
         characterClass = "text-foreground";
       }
 
       return (
         <span
-          key={`${character}-${index}`}
+          key={`${character}-${globalIndex}`}
           className={`${characterClass} ${isCurrent ? "border-b-2 border-primary" : ""}`}
         >
           {character}
@@ -571,11 +629,10 @@ const TypingTest = () => {
 
         <div className="max-w-4xl mx-auto">
           {testFinished && finalStats ? (
-            /* Test Results - Statistics and Graph */
+            /* Test Results - Statistics */
             <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-primary" />
                   Test Results
                 </CardTitle>
               </CardHeader>
@@ -625,73 +682,6 @@ const TypingTest = () => {
                         ? ((finalStats.totalChars / finalStats.elapsedMs) * 1000).toFixed(1)
                         : "0"}
                     </p>
-                  </div>
-                </div>
-
-                {/* Performance Graph */}
-                <div className="bg-secondary/20 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold mb-6 text-foreground">Performance Over Time</h3>
-                  <div className="w-full" style={{ minHeight: '350px' }}>
-                    {timeSeriesData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={350}>
-                        <LineChart 
-                          data={timeSeriesData}
-                          margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                          <XAxis
-                            dataKey="time"
-                            label={{ value: "Time (seconds)", position: "insideBottom", offset: -10, style: { fill: "hsl(var(--muted-foreground))" } }}
-                            stroke="hsl(var(--muted-foreground))"
-                            tick={{ fill: "hsl(var(--muted-foreground))" }}
-                            tickMargin={8}
-                          />
-                          <YAxis
-                            label={{ value: "WPM / Accuracy", angle: -90, position: "insideLeft", style: { fill: "hsl(var(--muted-foreground))" } }}
-                            stroke="hsl(var(--muted-foreground))"
-                            tick={{ fill: "hsl(var(--muted-foreground))" }}
-                            tickMargin={8}
-                            domain={[0, 'dataMax + 10']}
-                          />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "0.5rem",
-                              padding: "8px 12px",
-                            }}
-                            labelStyle={{ color: "hsl(var(--foreground))", marginBottom: "4px" }}
-                            itemStyle={{ color: "hsl(var(--foreground))" }}
-                          />
-                          <Legend 
-                            wrapperStyle={{ paddingTop: "20px" }}
-                            iconType="line"
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="wpm"
-                            stroke="hsl(var(--primary))"
-                            strokeWidth={2.5}
-                            dot={{ fill: "hsl(var(--primary))", r: 4, strokeWidth: 2, stroke: "hsl(var(--card))" }}
-                            activeDot={{ r: 6 }}
-                            name="WPM"
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="accuracy"
-                            stroke="hsl(142 76% 36%)"
-                            strokeWidth={2.5}
-                            dot={{ fill: "hsl(142 76% 36%)", r: 4, strokeWidth: 2, stroke: "hsl(var(--card))" }}
-                            activeDot={{ r: 6 }}
-                            name="Accuracy %"
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex items-center justify-center h-[350px] text-muted-foreground">
-                        <p>No performance data available</p>
-                      </div>
-                    )}
                   </div>
                 </div>
 

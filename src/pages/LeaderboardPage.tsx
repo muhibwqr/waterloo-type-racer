@@ -111,9 +111,8 @@ const LeaderboardPage = () => {
     if (userIds.length > 0) {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("id, username, tier, program, school_name, id_verification_status")
-        .in("id", userIds)
-        .eq("id_verification_status", "approved"); // Only show approved users
+        .select("id, username, tier, program, school_name")
+        .in("id", userIds);
 
       if (profileError) {
         console.error("Failed to fetch profile information", profileError);
