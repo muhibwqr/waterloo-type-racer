@@ -46,11 +46,13 @@ const LeaderboardPage = () => {
 
     let includeTestMetadata = true;
 
+    // Fetch all typing tests ordered by WPM descending to get best scores
+    // Using a higher limit to ensure we capture all users, especially with the 45000 WPM test entry
     let { data, error } = await supabase
       .from("typing_tests")
       .select("user_id, wpm, accuracy, created_at, username")
       .order("wpm", { ascending: false })
-      .limit(200);
+      .limit(500);
 
     if (error) {
       includeTestMetadata = false;
@@ -58,7 +60,7 @@ const LeaderboardPage = () => {
         .from("typing_tests")
         .select("user_id, wpm, accuracy, created_at")
         .order("wpm", { ascending: false })
-        .limit(200);
+        .limit(500);
 
       if (fallback.error) {
         console.error("Failed to fetch leaderboard entries", fallback.error);
