@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Clock, Target, TrendingUp, Loader2, Pencil, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Trophy, Clock, Target, TrendingUp, Loader2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { computeTierFromWpm, formatDuration } from "@/lib/stats";
 import {
@@ -38,7 +38,6 @@ type ProfileRow = {
   total_tests?: number | null;
   time_spent_seconds?: number | null;
   created_at: string | null;
-  id_verification_status?: string | null;
 };
 
 type TypingTestRow = {
@@ -247,29 +246,6 @@ const Profile = () => {
           <Badge className="bg-primary/20 text-primary border-primary/30 text-lg px-4 py-1">
             {tierLabel} TIER
           </Badge>
-          <div className="mt-4">
-            {profile?.id_verification_status === "approved" ? (
-              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 flex items-center gap-1 mx-auto w-fit">
-                <CheckCircle className="w-3 h-3" />
-                ID Verified - Leaderboard Access
-              </Badge>
-            ) : profile?.id_verification_status === "pending" ? (
-              <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 flex items-center gap-1 mx-auto w-fit">
-                <AlertCircle className="w-3 h-3" />
-                ID Under Review
-              </Badge>
-            ) : profile?.id_verification_status === "rejected" ? (
-              <Badge className="bg-red-500/20 text-red-400 border-red-500/30 flex items-center gap-1 mx-auto w-fit">
-                <XCircle className="w-3 h-3" />
-                ID Verification Rejected
-              </Badge>
-            ) : (
-              <Badge className="bg-muted text-muted-foreground border-border flex items-center gap-1 mx-auto w-fit">
-                <AlertCircle className="w-3 h-3" />
-                ID Verification Required for Leaderboard
-              </Badge>
-            )}
-          </div>
           <p className="text-sm text-muted-foreground mt-4">
             Member since{" "}
             {profile?.created_at
