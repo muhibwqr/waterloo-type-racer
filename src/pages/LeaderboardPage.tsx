@@ -36,166 +36,40 @@ const LeaderboardPage = () => {
     setLoading(true);
     setFetchError(null);
 
-    type BaseTestRow = {
-      user_id: string | null;
-      wpm: number;
-      accuracy: number;
-      created_at: string | null;
-      username?: string | null;
-    };
-
-    let includeTestMetadata = true;
-
-    // Fetch all typing tests ordered by WPM descending to get best scores
-    // Using a higher limit to ensure we capture all users, especially with the 45000 WPM test entry
-    let { data, error } = await supabase
-      .from("typing_tests")
-      .select("user_id, wpm, accuracy, created_at, username")
+    // Fetch directly from leaderboard table
+    const { data, error } = await supabase
+      .from("leaderboard")
+      .select("*")
       .order("wpm", { ascending: false })
-      .limit(500);
+      .limit(100);
 
     if (error) {
-      includeTestMetadata = false;
-      const fallback = await supabase
-        .from("typing_tests")
-        .select("user_id, wpm, accuracy, created_at")
-        .order("wpm", { ascending: false })
-        .limit(500);
-
-      if (fallback.error) {
-        console.error("Failed to fetch leaderboard entries", fallback.error);
-        setFetchError("We couldn't load the leaderboard right now.");
-        setRows([]);
-        setLoading(false);
-        return;
-      }
-      data = fallback.data as BaseTestRow[] | null;
+      console.error("Failed to fetch leaderboard entries", error);
+      setFetchError("We couldn't load the leaderboard right now.");
+      setRows([]);
+      setLoading(false);
+      return;
     }
 
-    const rowsWithMetadata = (data ?? []) as BaseTestRow[];
+    // Map leaderboard data to DisplayRow format
+    const formatted: DisplayRow[] = (data ?? []).map((entry) => {
+      // Extract username from email (part before @)
+      const emailUsername = entry.email?.split("@")[0] || "Anonymous";
+      
+      // Compute tier from WPM
+      const tier = computeTierFromWpm(entry.wpm);
 
-    // Map to store the BEST score for each user (since data is already ordered by WPM desc)
-    const uniqueByUser = new Map<
-      string,
-      { wpm: number; accuracy: number; created_at: string | null; username: string | null }
-    >();
-    const anonymousEntries: DisplayRow[] = [];
-
-    rowsWithMetadata.forEach((entry) => {
-      if (!entry.user_id) {
-        anonymousEntries.push({
-          rank: 0,
-          name: entry.username ?? "Anonymous Typer",
-          wpm: entry.wpm,
-          accuracy: entry.accuracy,
-          program: null,
-          tier: null,
-          createdAt: entry.created_at,
-        });
-        return;
-      }
-
-      // Keep only the best (highest WPM) score for each user
-      // Since data is ordered by WPM descending, first entry is best
-      if (!uniqueByUser.has(entry.user_id)) {
-        uniqueByUser.set(entry.user_id, {
-          wpm: entry.wpm,
-          accuracy: entry.accuracy,
-          created_at: entry.created_at,
-          username: includeTestMetadata ? entry.username ?? null : null,
-        });
-      } else {
-        // If user already exists, only update if this score is better
-        const existing = uniqueByUser.get(entry.user_id)!;
-        if (entry.wpm > existing.wpm) {
-          uniqueByUser.set(entry.user_id, {
-            wpm: entry.wpm,
-            accuracy: entry.accuracy,
-            created_at: entry.created_at,
-            username: includeTestMetadata ? entry.username ?? null : existing.username,
-          });
-        }
-      }
+      return {
+        rank: 0, // Will be assigned after sorting
+        name: emailUsername,
+        wpm: entry.wpm,
+        accuracy: entry.accuracy ?? null,
+        program: entry.program ?? null,
+        tier: tier,
+        createdAt: entry.created_at ?? null,
+        school_name: entry.faculty ?? null, // Map faculty to school_name for display
+      };
     });
-
-    const userIds = Array.from(uniqueByUser.keys());
-    let profileLookup: Record<
-      string,
-      { username: string | null; tier: string | null; program: string | null; school_name: string | null }
-    > = {};
-    let verifiedUserIdsSet = new Set<string>();
-
-    if (userIds.length > 0) {
-      // Get verified user IDs (users with confirmed emails)
-      const { data: verifiedUserIds, error: verifiedError } = await supabase.rpc('get_verified_user_ids');
-      
-      if (verifiedError) {
-        console.error("Failed to fetch verified user IDs", verifiedError);
-        // If RPC fails (e.g., function doesn't exist), show all users as fallback
-        // This allows the leaderboard to work even if migration hasn't been run
-        console.warn("Falling back to showing all users - RPC function may not exist. Please run the migration.");
-        verifiedUserIdsSet = new Set(userIds);
-      } else {
-        // Filter to only verified users
-        verifiedUserIdsSet = new Set(
-          verifiedUserIds?.map((row: { user_id: string }) => row.user_id) ?? []
-        );
-        console.log(`Found ${verifiedUserIdsSet.size} verified users out of ${userIds.length} total users`);
-      }
-
-      const verifiedUserIdsArray = userIds.filter(id => verifiedUserIdsSet.has(id));
-      
-      console.log(`User IDs from typing tests: ${userIds.length}`);
-      console.log(`Verified user IDs: ${verifiedUserIdsSet.size}`);
-      console.log(`Matching verified users: ${verifiedUserIdsArray.length}`);
-
-      if (verifiedUserIdsArray.length === 0) {
-        console.warn("No verified users found with typing tests. Leaderboard will be empty.");
-        setRows([]);
-        setLoading(false);
-        return;
-      }
-
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, username, tier, program, school_name")
-        .in("id", verifiedUserIdsArray);
-
-      if (profileError) {
-        console.error("Failed to fetch profile information", profileError);
-      } else {
-        profileLookup = (profileData ?? []).reduce<
-          Record<
-            string,
-            { username: string | null; tier: string | null; program: string | null; school_name: string | null }
-          >
-        >((acc, profile) => {
-          acc[profile.id] = {
-            username: profile.username,
-            tier: profile.tier,
-            program: profile.program,
-            school_name: profile.school_name,
-          };
-          return acc;
-        }, {});
-      }
-    }
-
-    const formatted: DisplayRow[] = Array.from(uniqueByUser.entries())
-      .filter(([userId]) => profileLookup[userId] && verifiedUserIdsSet.has(userId)) // Only include verified users with profiles
-      .map(([userId, result]) => {
-        const profile = profileLookup[userId];
-        return {
-          rank: 0,
-          name: profile?.username ?? result.username ?? "Anonymous Typer",
-          wpm: result.wpm,
-          accuracy: result.accuracy ?? null,
-          program: profile?.program ?? null,
-          tier: profile?.tier ?? null,
-          createdAt: result.created_at ?? null,
-          school_name: profile?.school_name ?? null,
-        };
-      });
 
     // Only include verified users - exclude anonymous entries
     // Sort by WPM descending and assign ranks
