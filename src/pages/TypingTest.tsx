@@ -172,6 +172,8 @@ const TypingTest = () => {
   const timeSeriesIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const typedTextRef = useRef("");
   const fullPromptRef = useRef("");
+  const [hasSubmittedScore, setHasSubmittedScore] = useState(false);
+  const [checkingSubmission, setCheckingSubmission] = useState(false);
 
   // Generate infinite prompt by combining prompts
   const generateInfinitePrompt = useCallback(() => {
@@ -354,7 +356,34 @@ const TypingTest = () => {
 
   const typedPromptExactly = typedText === currentPrompt;
 
-  const canUploadScore = finalStats && testFinished && (finishReason === "time" || typedPromptExactly);
+  const canUploadScore = finalStats && testFinished && (finishReason === "time" || typedPromptExactly) && !hasSubmittedScore;
+
+  // Check if user has already submitted a score
+  useEffect(() => {
+    const checkExistingScore = async () => {
+      if (!user?.id) {
+        setHasSubmittedScore(false);
+        return;
+      }
+
+      setCheckingSubmission(true);
+      const { data, error } = await supabase
+        .from("typing_tests")
+        .select("id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        setHasSubmittedScore(true);
+      } else {
+        setHasSubmittedScore(false);
+      }
+      setCheckingSubmission(false);
+    };
+
+    void checkExistingScore();
+  }, [user?.id]);
 
   const getRandomPromptIndex = useCallback(
     (excludeIndex: number) => {
@@ -569,6 +598,12 @@ const TypingTest = () => {
       return;
     }
 
+    // Check if user has already submitted a score
+    if (hasSubmittedScore) {
+      toast.error("You can only submit your score once. Your score has already been recorded.");
+      return;
+    }
+
     setIsSaving(true);
     const { data: profileRow } = await supabase
       .from("profiles")
@@ -601,6 +636,8 @@ const TypingTest = () => {
         throw error;
       }
 
+      // Mark as submitted to prevent future submissions
+      setHasSubmittedScore(true);
       toast.success("Score uploaded! Nice typing.");
     } catch (uploadError) {
       console.error("Failed to upload score", uploadError);
@@ -842,11 +879,17 @@ const TypingTest = () => {
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
                   <Button
                     onClick={handleSaveScore}
-                    disabled={!user || !canUploadScore || isSaving}
+                    disabled={!user || !canUploadScore || isSaving || hasSubmittedScore || checkingSubmission}
                     variant="outline"
                     className="min-w-[140px]"
                   >
-                    {user ? (isSaving ? "Uploading..." : "Upload Score") : "Sign up to Upload"}
+                    {checkingSubmission 
+                      ? "Checking..." 
+                      : hasSubmittedScore 
+                      ? "Already Submitted" 
+                      : user 
+                      ? (isSaving ? "Uploading..." : "Upload Score") 
+                      : "Sign up to Upload"}
                   </Button>
                   <Button
                     onClick={() => handleRestart({ nextPrompt: true })}
