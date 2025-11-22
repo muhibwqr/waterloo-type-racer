@@ -27,7 +27,7 @@ const placeholderProgram = "Claim this spot";
 const LeaderboardPage = () => {
   const [search, setSearch] = useState("");
   const [timeFilter, setTimeFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"users" | "universities">("users");
+  const [viewMode, setViewMode] = useState<"users" | "universities">("universities");
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<DisplayRow[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
