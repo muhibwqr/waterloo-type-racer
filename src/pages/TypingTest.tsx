@@ -400,6 +400,39 @@ const TypingTest = () => {
       return;
     }
 
+    // Update time left immediately based on elapsed time
+    const updateTimeLeft = () => {
+      const elapsedMs = Date.now() - startTime;
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      const timeRemaining = Math.max(0, duration - elapsedSeconds);
+      
+      setTimeLeft(timeRemaining);
+      
+      if (timeRemaining <= 0) {
+        if (finishTestRef.current) {
+          finishTestRef.current("time");
+        }
+        return;
+      }
+    };
+
+    // Update immediately on mount
+    updateTimeLeft();
+
+    // Calculate next second boundary to sync with exact seconds
+    const elapsedMs = Date.now() - startTime;
+    const msUntilNextSecond = 1000 - (elapsedMs % 1000);
+    
+    // Set up timer to update at the next second boundary, then every second
+    const initialTimer = setTimeout(() => {
+      updateTimeLeft();
+      
+      // Then continue with regular intervals every second
+      timerRef.current = setInterval(() => {
+        updateTimeLeft();
+      }, 1000);
+    }, msUntilNextSecond);
+
     // Track time series data every second
     timeSeriesIntervalRef.current = setInterval(() => {
       if (startTime && typedText.length > 0) {
@@ -423,20 +456,8 @@ const TypingTest = () => {
       }
     }, 1000);
 
-    timerRef.current = setInterval(() => {
-      setTimeLeft((previous) => {
-        if (previous <= 1) {
-          // Use ref to call the latest finishTest without causing timer reset
-          if (finishTestRef.current) {
-            finishTestRef.current("time");
-          }
-          return 0;
-        }
-        return previous - 1;
-      });
-    }, 1000);
-
     return () => {
+      clearTimeout(initialTimer);
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -446,7 +467,7 @@ const TypingTest = () => {
         timeSeriesIntervalRef.current = null;
       }
     };
-  }, [startTime, testStarted, typedText, fullPrompt, computeStats]);
+  }, [startTime, testStarted, typedText, fullPrompt, computeStats, duration]);
 
   useEffect(() => {
     if (!testStarted) {
