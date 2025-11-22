@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { subDays, subMonths, subWeeks } from "date-fns";
 import { computeTierFromWpm } from "@/lib/stats";
+import { getSchoolNameFromEmail } from "@/utils/emailToSchool";
 
 type DisplayRow = {
   rank: number;
@@ -56,6 +57,9 @@ const LeaderboardPage = () => {
       // Extract username from email (part before @)
       const emailUsername = entry.email?.split("@")[0] || "Anonymous";
       
+      // Match university by email domain
+      const universityName = entry.email ? getSchoolNameFromEmail(entry.email) : "Unknown University";
+      
       // Compute tier from WPM
       const tier = computeTierFromWpm(entry.wpm);
 
@@ -67,7 +71,7 @@ const LeaderboardPage = () => {
         program: entry.program ?? null,
         tier: tier,
         createdAt: entry.created_at ?? null,
-        school_name: entry.faculty ?? null, // Map faculty to school_name for display
+        school_name: universityName, // Match university from email domain
       };
     });
 
