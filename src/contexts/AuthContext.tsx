@@ -2,12 +2,13 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getSchoolNameFromEmail } from "@/utils/emailToSchool";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, username: string, schoolName: string, idFile: File | null) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, username: string, idFile: File | null) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resendVerification: () => Promise<{ error: any }>;
@@ -79,7 +80,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, username: string, schoolName: string, idFile: File | null) => {
+  const signUp = async (email: string, password: string, username: string, idFile: File | null) => {
+    // Auto-detect school name from email domain
+    const schoolName = getSchoolNameFromEmail(email);
+    
     // First, sign up the user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
@@ -94,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: authError };
     }
 
-    // Update profile with school name (always)
+    // Update profile with auto-detected school name
     const { error: schoolUpdateError } = await supabase
       .from('profiles')
       .update({ school_name: schoolName })

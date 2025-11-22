@@ -19,7 +19,6 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [schoolName, setSchoolName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const normalizedEmail = email.trim();
@@ -28,7 +27,6 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
   const usernameValid = username.length >= 3 && username.length <= 20 && /^[a-zA-Z0-9_]+$/.test(username);
   const passwordValid = password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
-  const schoolNameValid = schoolName.length >= 2 && schoolName.length <= 100;
 
   const getPasswordStrength = () => {
     if (password.length === 0) return null;
@@ -65,14 +63,10 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
       return;
     }
 
-    if (!schoolNameValid) {
-      toast.error("Please enter your school name (2-100 characters)");
-      return;
-    }
-
     setIsLoading(true);
 
-    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username, schoolName, null);
+    // School name will be auto-detected from email domain in AuthContext
+    const { error } = await signUp(normalizedEmail.toLowerCase(), password, username, null);
 
     if (error) {
       if (error.message.includes("already registered")) {
@@ -137,26 +131,6 @@ const SignUpForm = ({ onSuccess }: SignUpFormProps) => {
           <p className={`text-sm flex items-center gap-1 ${usernameValid ? 'text-primary' : 'text-muted-foreground'}`}>
             {usernameValid ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
             3-20 chars, alphanumeric + underscore only
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="signup-school" className="text-foreground text-sm sm:text-base">School Name</Label>
-        <Input
-          id="signup-school"
-          type="text"
-          value={schoolName}
-          onChange={(e) => setSchoolName(e.target.value)}
-          placeholder="University of Example"
-          required
-          className={`h-10 sm:h-12 text-sm sm:text-base bg-input border-2 ${
-            schoolName && schoolNameValid ? 'border-primary' : schoolName ? 'border-destructive' : 'border-border'
-          } focus:border-primary`}
-        />
-        {schoolName && !schoolNameValid && (
-          <p className="text-sm text-destructive flex items-center gap-1">
-            <X className="w-4 h-4" /> School name must be 2-100 characters
           </p>
         )}
       </div>

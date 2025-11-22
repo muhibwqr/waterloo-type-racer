@@ -199,6 +199,13 @@ const LeaderboardPage = () => {
           void loadLeaderboard();
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => {
+          void loadLeaderboard();
+        },
+      )
       .subscribe();
 
     return () => {
