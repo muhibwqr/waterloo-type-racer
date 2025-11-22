@@ -170,28 +170,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const resendVerification = async () => {
-    if (!user?.email) {
-      return { error: { message: "No email found" } };
+    // Try to get email from user object or session
+    const email = user?.email || session?.user?.email;
+    
+    if (!email) {
+      return { error: { message: "Unable to find your email address. Please try signing out and signing back in." } };
     }
     
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: user.email,
+        email: email,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
         }
       });
       
       if (error) {
-        console.error("Resend verification error:", error);
         return { error };
       }
       
       return { error: null };
     } catch (err) {
-      console.error("Resend verification exception:", err);
-      return { error: err as Error };
+      return { error: { message: "Failed to resend verification email. Please try again." } };
     }
   };
 

@@ -6,9 +6,12 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const EmailVerification = () => {
-  const { user, resendVerification } = useAuth();
+  const { user, session, loading, resendVerification } = useAuth();
   const navigate = useNavigate();
   const [isResending, setIsResending] = useState(false);
+
+  // Get email from user or session
+  const userEmail = user?.email || session?.user?.email;
 
   // If user is already verified, redirect to home
   useEffect(() => {
@@ -19,8 +22,14 @@ const EmailVerification = () => {
   }, [user, navigate]);
 
   const handleResend = async () => {
-    if (!user?.email) {
-      toast.error("No email address found");
+    // Wait for auth to finish loading
+    if (loading) {
+      toast.info("Please wait while we check your account...");
+      return;
+    }
+
+    if (!userEmail) {
+      toast.error("Unable to find your email address. Please try signing out and signing back in.");
       return;
     }
 
@@ -28,7 +37,6 @@ const EmailVerification = () => {
     const { error } = await resendVerification();
     
     if (error) {
-      console.error("Resend verification error:", error);
       toast.error(error.message || "Failed to resend email. Please try again.");
     } else {
       toast.success("Verification email sent! Check your inbox.");
@@ -48,8 +56,16 @@ const EmailVerification = () => {
           <div className="space-y-4">
             <h1 className="text-4xl font-bold text-foreground">Verify Your Email</h1>
             <p className="text-lg text-muted-foreground">
-              We sent a verification link to <br />
-              <span className="text-foreground font-semibold">{user?.email}</span>
+              {loading ? (
+                "Loading your account..."
+              ) : userEmail ? (
+                <>
+                  We sent a verification link to <br />
+                  <span className="text-foreground font-semibold">{userEmail}</span>
+                </>
+              ) : (
+                "Unable to load your email address. Please try signing out and signing back in."
+              )}
             </p>
           </div>
 
@@ -60,11 +76,17 @@ const EmailVerification = () => {
 
           <Button
             onClick={handleResend}
-            disabled={isResending}
+            disabled={isResending || loading || !userEmail}
             variant="outline"
             className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
           >
-            {isResending ? "Sending..." : "Didn't receive it? Resend verification email"}
+            {loading 
+              ? "Loading..." 
+              : isResending 
+              ? "Sending..." 
+              : !userEmail
+              ? "Email not available"
+              : "Didn't receive it? Resend verification email"}
           </Button>
 
           <div className="pt-8 border-t border-border">
