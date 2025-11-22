@@ -82,7 +82,14 @@ const LeaderboardPage = () => {
       .slice(0, totalSlots);
 
     console.log(`Leaderboard loaded: ${combined.length} users displayed`);
-    console.log(`WPM range: ${combined.length > 0 ? `${combined[combined.length - 1].wpm} - ${combined[0].wpm}` : 'N/A'}`);
+    if (combined.length > 0) {
+      const wpmValues = combined.map(r => r.wpm).sort((a, b) => b - a);
+      console.log(`WPM range: ${wpmValues[wpmValues.length - 1]} - ${wpmValues[0]}`);
+      console.log(`All WPM scores:`, wpmValues);
+      console.log(`Expected: 12 users (51-306 WPM) + 1 test entry (45000 WPM) = 13 total`);
+    } else {
+      console.warn('Leaderboard is empty - no users to display');
+    }
 
     setRows(combined);
     setLoading(false);
