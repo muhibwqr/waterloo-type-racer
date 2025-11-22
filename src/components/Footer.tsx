@@ -1,4 +1,4 @@
-import { Mail } from "lucide-react";
+import { Mail, Coffee } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -8,7 +8,7 @@ const Footer = () => {
           <div className="text-center md:text-left">
             <p>© 2025 Muhib Waqar. All rights reserved.</p>
           </div>
-          <div className="text-center md:text-right">
+          <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-right">
             <p>
               If you don't see your school, or want a feature fixed, please{" "}
               <a
@@ -20,6 +20,15 @@ const Footer = () => {
               </a>
               , or if you want your company listed as a sponsor.
             </p>
+            <a
+              href="https://buymeacoffee.com/muhibwqr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline inline-flex items-center gap-1"
+            >
+              <Coffee className="w-3 h-3" />
+              Buy me a coffee
+            </a>
           </div>
         </div>
       </div>
