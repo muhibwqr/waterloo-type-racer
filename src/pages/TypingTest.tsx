@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import CommandPalette from "@/components/CommandPalette";
 import { TrendingUp, Target, Clock, Zap, Trophy } from "lucide-react";
 import { computeTierFromWpm } from "@/lib/stats";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
 
@@ -25,6 +26,12 @@ type Stats = {
   totalChars: number;
   words: number;
   elapsedMs: number;
+};
+
+type TimeSeriesPoint = {
+  time: number; // seconds elapsed
+  wpm: number;
+  accuracy: number;
 };
 
 
@@ -160,6 +167,9 @@ const TypingTest = () => {
   const [finalTotalMistakes, setFinalTotalMistakes] = useState(0);
   const [currentPromptLines, setCurrentPromptLines] = useState<string[]>([]);
   const [fullPrompt, setFullPrompt] = useState("");
+  const finishTestRef = useRef<((reason: "time" | "manual", finalText?: string) => void) | null>(null);
+  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
+  const timeSeriesIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Generate infinite prompt by combining prompts
   const generateInfinitePrompt = useCallback(() => {
@@ -244,12 +254,21 @@ const TypingTest = () => {
     let correctChars = 0;
     let incorrectChars = 0;
 
-    for (let index = 0; index < text.length; index += 1) {
+    // Compare character by character up to the length of typed text
+    // For infinite prompt, compare against what's been typed
+    const compareLength = Math.min(text.length, promptText.length);
+    
+    for (let index = 0; index < compareLength; index += 1) {
       if (text[index] === promptText[index]) {
         correctChars += 1;
       } else {
         incorrectChars += 1;
       }
+    }
+    
+    // If typed text is longer than prompt, count extra characters as incorrect
+    if (text.length > promptText.length) {
+      incorrectChars += (text.length - promptText.length);
     }
 
     const words = text.trim().length > 0 ? text.trim().split(/\s+/).length : 0;
@@ -258,10 +277,9 @@ const TypingTest = () => {
     const elapsedMinutes = elapsedMs > 0 ? elapsedMs / 60000 : 0;
     const wpm = elapsedMinutes > 0 && words > 0 ? Math.round(words / elapsedMinutes) : 0;
     
-    // Calculate accuracy based on correct characters vs total characters typed (including mistakes)
-    // Total characters typed = correct + incorrect + mistakes (corrected errors)
+    // Calculate accuracy: correct chars / (correct + incorrect + mistakes from corrections)
+    // Mistakes include characters that were typed wrong and then corrected
     const totalCharsTyped = correctChars + incorrectChars + mistakes;
-    // Accuracy = correct characters / total characters typed
     const accuracy = totalCharsTyped > 0 
       ? (correctChars / totalCharsTyped) * 100 
       : 100;
@@ -303,6 +321,12 @@ const TypingTest = () => {
       setFinishReason(reason);
       setTimeLeft(0);
       
+      // Clear time series interval
+      if (timeSeriesIntervalRef.current) {
+        clearInterval(timeSeriesIntervalRef.current);
+        timeSeriesIntervalRef.current = null;
+      }
+      
       // Announce tier
       const tier = computeTierFromWpm(stats.wpm);
       toast.success(
@@ -316,6 +340,11 @@ const TypingTest = () => {
     },
     [computeStats, currentPrompt, startTime, testFinished, typedText],
   );
+
+  // Update the ref whenever finishTest changes
+  useEffect(() => {
+    finishTestRef.current = finishTest;
+  }, [finishTest]);
 
   const typedPromptExactly = typedText === currentPrompt;
 
@@ -353,6 +382,7 @@ const TypingTest = () => {
       totalMistakesRef.current = 0;
       previousTypedLengthRef.current = 0;
       setFinalTotalMistakes(0);
+      setTimeSeriesData([]);
       // Reset prompt
       const { fullText, lines } = generateInfinitePrompt();
       setFullPrompt(fullText);
@@ -370,10 +400,36 @@ const TypingTest = () => {
       return;
     }
 
+    // Track time series data every second
+    timeSeriesIntervalRef.current = setInterval(() => {
+      if (startTime && typedText.length > 0) {
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        const currentStats = computeStats(typedText, fullPrompt, startTime, totalMistakesRef.current);
+        
+        setTimeSeriesData((prev) => {
+          // Avoid duplicate entries for the same second
+          if (prev.length > 0 && prev[prev.length - 1].time === elapsedSeconds) {
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              time: elapsedSeconds,
+              wpm: currentStats.wpm,
+              accuracy: currentStats.accuracy,
+            },
+          ];
+        });
+      }
+    }, 1000);
+
     timerRef.current = setInterval(() => {
       setTimeLeft((previous) => {
         if (previous <= 1) {
-          finishTest("time");
+          // Use ref to call the latest finishTest without causing timer reset
+          if (finishTestRef.current) {
+            finishTestRef.current("time");
+          }
           return 0;
         }
         return previous - 1;
@@ -385,8 +441,12 @@ const TypingTest = () => {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      if (timeSeriesIntervalRef.current) {
+        clearInterval(timeSeriesIntervalRef.current);
+        timeSeriesIntervalRef.current = null;
+      }
     };
-  }, [finishTest, startTime, testStarted]);
+  }, [startTime, testStarted, typedText, fullPrompt, computeStats]);
 
   useEffect(() => {
     if (!testStarted) {
@@ -681,6 +741,69 @@ const TypingTest = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* Performance Graph */}
+                {timeSeriesData.length > 0 && (
+                  <div className="bg-secondary/20 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold mb-6 text-foreground">Performance Over Time</h3>
+                    <div className="w-full" style={{ minHeight: '350px' }}>
+                      <ResponsiveContainer width="100%" height={350}>
+                        <LineChart 
+                          data={timeSeriesData}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                          <XAxis
+                            dataKey="time"
+                            label={{ value: "Time (seconds)", position: "insideBottom", offset: -10, style: { fill: "hsl(var(--muted-foreground))" } }}
+                            stroke="hsl(var(--muted-foreground))"
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
+                            tickMargin={8}
+                          />
+                          <YAxis
+                            label={{ value: "WPM / Accuracy", angle: -90, position: "insideLeft", style: { fill: "hsl(var(--muted-foreground))" } }}
+                            stroke="hsl(var(--muted-foreground))"
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
+                            tickMargin={8}
+                            domain={[0, 'dataMax + 10']}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: "0.5rem",
+                              padding: "8px 12px",
+                            }}
+                            labelStyle={{ color: "hsl(var(--foreground))", marginBottom: "4px" }}
+                            itemStyle={{ color: "hsl(var(--foreground))" }}
+                          />
+                          <Legend 
+                            wrapperStyle={{ paddingTop: "20px" }}
+                            iconType="line"
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="wpm"
+                            stroke="hsl(var(--primary))"
+                            strokeWidth={2.5}
+                            dot={{ fill: "hsl(var(--primary))", r: 4, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                            activeDot={{ r: 6 }}
+                            name="WPM"
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="accuracy"
+                            stroke="hsl(142 76% 36%)"
+                            strokeWidth={2.5}
+                            dot={{ fill: "hsl(142 76% 36%)", r: 4, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                            activeDot={{ r: 6 }}
+                            name="Accuracy %"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
