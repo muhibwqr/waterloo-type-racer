@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mail, CheckCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const EmailVerification = () => {
   const { user, resendVerification } = useAuth();
+  const navigate = useNavigate();
   const [isResending, setIsResending] = useState(false);
+
+  // If user is already verified, redirect to home
+  useEffect(() => {
+    if (user?.email_confirmed_at) {
+      toast.success("Email already verified! Redirecting...");
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const handleResend = async () => {
     if (!user?.email) {
@@ -44,8 +54,8 @@ const EmailVerification = () => {
           </div>
 
           <div className="space-y-4 text-muted-foreground">
-            <p>Click the link in your email to activate your account and join the leaderboard.</p>
-            <p className="text-sm">You can still use the typing test, but can't save scores or compete until verified.</p>
+            <p>Click the link in your email to activate your account. You'll be automatically signed in and can start using the app right away!</p>
+            <p className="text-sm">You can still use the typing test, but can't upload scores until verified.</p>
           </div>
 
           <Button
@@ -60,7 +70,7 @@ const EmailVerification = () => {
           <div className="pt-8 border-t border-border">
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <CheckCircle className="w-4 h-4 text-primary" />
-              <span>After verifying, you'll be automatically signed in</span>
+              <span>After verifying, you'll be automatically signed in and redirected to the app</span>
             </div>
           </div>
         </div>

@@ -28,12 +28,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (event === 'SIGNED_IN') {
-          toast.success("Welcome back!");
+          if (session?.user?.email_confirmed_at) {
+            toast.success("Email verified! Welcome to GooseType!");
+          } else {
+            toast.success("Welcome back!");
+          }
         } else if (event === 'SIGNED_OUT') {
           toast.info("Signed out successfully");
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Handle token refresh (email verification)
+          if (session?.user?.email_confirmed_at) {
+            toast.success("Email verified! You're all set.");
+          }
         }
       }
     );
+
+    // Handle email verification callback from URL hash
+    const handleEmailVerification = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+
+      if (accessToken && refreshToken && type === 'signup') {
+        // Exchange tokens for session
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (error) {
+          console.error("Error setting session:", error);
+        } else if (data.session) {
+          // Clear hash from URL
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    };
+
+    handleEmailVerification();
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -52,7 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       password,
       options: {
         data: { username, schoolName },
-        emailRedirectTo: `${window.location.origin}/auth/sign-in`,
+        emailRedirectTo: `${window.location.origin}/`,
       }
     });
 
@@ -141,7 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         type: 'signup',
         email: user.email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/sign-in`,
+          emailRedirectTo: `${window.location.origin}/`,
         }
       });
       
