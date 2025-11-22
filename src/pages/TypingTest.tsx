@@ -170,6 +170,8 @@ const TypingTest = () => {
   const finishTestRef = useRef<((reason: "time" | "manual", finalText?: string) => void) | null>(null);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
   const timeSeriesIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const typedTextRef = useRef("");
+  const fullPromptRef = useRef("");
 
   // Generate infinite prompt by combining prompts
   const generateInfinitePrompt = useCallback(() => {
@@ -194,6 +196,8 @@ const TypingTest = () => {
     const { fullText, lines } = generateInfinitePrompt();
     setFullPrompt(fullText);
     setCurrentPromptLines(lines);
+    // Update ref for time series tracking
+    fullPromptRef.current = fullText;
   }, [generateInfinitePrompt]);
 
   // Add more lines when user gets close to the end
@@ -217,6 +221,8 @@ const TypingTest = () => {
       
       setFullPrompt(newText);
       setCurrentPromptLines([...currentPromptLines, ...newLines]);
+      // Update ref for time series tracking
+      fullPromptRef.current = newText;
     }
   }, [typedText.length, fullPrompt, currentPromptIndex, currentPromptLines, prompts]);
 
@@ -387,6 +393,9 @@ const TypingTest = () => {
       const { fullText, lines } = generateInfinitePrompt();
       setFullPrompt(fullText);
       setCurrentPromptLines(lines);
+      // Reset refs
+      typedTextRef.current = "";
+      fullPromptRef.current = fullText;
 
       if (options?.nextPrompt) {
         setCurrentPromptIndex((previous) => getRandomPromptIndex(previous));
@@ -433,11 +442,12 @@ const TypingTest = () => {
       }, 1000);
     }, msUntilNextSecond);
 
-    // Track time series data every second
+    // Track time series data every second - use refs to access latest values
+
     timeSeriesIntervalRef.current = setInterval(() => {
-      if (startTime && typedText.length > 0) {
+      if (startTime && typedTextRef.current.length > 0) {
         const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-        const currentStats = computeStats(typedText, fullPrompt, startTime, totalMistakesRef.current);
+        const currentStats = computeStats(typedTextRef.current, fullPromptRef.current, startTime, totalMistakesRef.current);
         
         setTimeSeriesData((prev) => {
           // Avoid duplicate entries for the same second
@@ -467,7 +477,7 @@ const TypingTest = () => {
         timeSeriesIntervalRef.current = null;
       }
     };
-  }, [startTime, testStarted, typedText, fullPrompt, computeStats, duration]);
+  }, [startTime, testStarted, duration]);
 
   useEffect(() => {
     if (!testStarted) {
@@ -527,6 +537,8 @@ const TypingTest = () => {
     
     previousTypedLengthRef.current = currentLength;
     setTypedText(value);
+    // Update ref for time series tracking
+    typedTextRef.current = value;
     
     // Don't auto-submit - let user type infinitely until time runs out
   };
