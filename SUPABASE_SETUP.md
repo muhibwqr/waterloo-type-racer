@@ -6,22 +6,14 @@ This guide covers all the Supabase configuration needed to make GooseType work p
 
 Run these migrations in order in your Supabase SQL Editor:
 
-### Migration 1: Add Faculty to Profiles
-**File:** `supabase/migrations/20251112010100_add_faculty_to_profiles.sql`
-```sql
-ALTER TABLE public.profiles
-ADD COLUMN faculty TEXT;
-```
-
-### Migration 2: Add Username and Faculty to Typing Tests
+### Migration 1: Add Username to Typing Tests
 **File:** `supabase/migrations/20251112013500_add_username_and_faculty_to_typing_tests.sql`
 ```sql
 ALTER TABLE public.typing_tests
 ADD COLUMN username TEXT;
-
-ALTER TABLE public.typing_tests
-ADD COLUMN faculty TEXT;
 ```
+
+**Note:** The `faculty` column in migrations is deprecated. Universities are now automatically determined from email domains using the `getSchoolNameFromEmail` utility function.
 
 ### Migration 3: Get Email by Username Function
 **File:** `supabase/migrations/20251112020000_get_email_by_username.sql`

@@ -19,7 +19,7 @@ export type Database = {
           accuracy: number
           created_at: string | null
           email: string
-          faculty: string | null
+          faculty: string | null // DEPRECATED: Universities are determined from email domain // DEPRECATED: Universities are determined from email domain, not this field
           id: string
           program: string | null
           user_id: string
@@ -124,7 +124,7 @@ export type Database = {
           raw_wpm: number
           test_duration: number | null
           test_mode: string
-          faculty: string | null
+          faculty: string | null // DEPRECATED: Universities are determined from email domain
           username: string | null
           user_id: string | null
           word_count: number | null
