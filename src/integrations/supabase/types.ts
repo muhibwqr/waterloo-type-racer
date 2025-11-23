@@ -129,6 +129,10 @@ export type Database = {
           user_id: string | null
           word_count: number | null
           wpm: number
+          flagged: boolean | null
+          approved: boolean | null
+          approved_at: string | null
+          approved_by: string | null
         }
         Insert: {
           accuracy: number
@@ -148,6 +152,10 @@ export type Database = {
           user_id?: string | null
           word_count?: number | null
           wpm: number
+          flagged?: boolean | null
+          approved?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
         }
         Update: {
           accuracy?: number
@@ -167,6 +175,10 @@ export type Database = {
           user_id?: string | null
           word_count?: number | null
           wpm?: number
+          flagged?: boolean | null
+          approved?: boolean | null
+          approved_at?: string | null
+          approved_by?: string | null
         }
         Relationships: []
       }

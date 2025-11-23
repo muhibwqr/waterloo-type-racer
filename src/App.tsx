@@ -11,6 +11,8 @@ import Leaderboard from "@/pages/LeaderboardPage";
 import Profile from "@/pages/Profile";
 import About from "@/pages/About";
 import EmailVerification from "@/pages/EmailVerification";
+import AdminApprovalAuth from "@/pages/AdminApprovalAuth";
+import AdminApprovalDashboard from "@/pages/AdminApprovalDashboard";
 import NotFound from "@/pages/NotFound";
 import "./App.css";
 
@@ -32,6 +34,8 @@ const App = () => (
                 <Route path="/profile/:username?" element={<Profile />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/verify-email" element={<EmailVerification />} />
+                <Route path="/admin-approval-auth" element={<AdminApprovalAuth />} />
+                <Route path="/admin-approval-auth/dashboard" element={<AdminApprovalDashboard />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>

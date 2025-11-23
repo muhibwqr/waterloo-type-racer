@@ -614,6 +614,9 @@ const TypingTest = () => {
     const extraChars = Math.max(statsForUpload.totalChars - currentPrompt.length, 0);
     const missedChars = Math.max(currentPrompt.length - statsForUpload.totalChars, 0);
 
+    // Flag suspicious tests: WPM > 130 or (accuracy > 98% AND WPM > 110)
+    const flagged = statsForUpload.wpm > 130 || (statsForUpload.accuracy > 98 && statsForUpload.wpm > 110);
+
     try {
       const { error } = await supabase.from("typing_tests").insert({
         user_id: user.id,
@@ -630,6 +633,7 @@ const TypingTest = () => {
         missed_chars: missedChars,
         consistency: null,
         username: profileRow?.username ?? user.user_metadata?.username ?? user.email?.split("@")[0],
+        flagged: flagged,
       });
 
       if (error) {
@@ -638,7 +642,12 @@ const TypingTest = () => {
 
       // Mark as submitted to prevent future submissions
       setHasSubmittedScore(true);
-      toast.success("Score uploaded! Nice typing.");
+      
+      if (flagged) {
+        toast.success("Score uploaded! Your test has been flagged for review and will appear on the leaderboard after admin approval.");
+      } else {
+        toast.success("Score uploaded! Nice typing.");
+      }
     } catch (uploadError) {
       console.error("Failed to upload score", uploadError);
       toast.error("We couldn't upload your score. Please try again.");

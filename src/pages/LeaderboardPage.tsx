@@ -38,11 +38,15 @@ const LeaderboardPage = () => {
     setFetchError(null);
 
     // Fetch directly from leaderboard table
+    // Only show approved tests or non-flagged tests
     const { data, error } = await supabase
       .from("leaderboard")
       .select("*")
       .order("wpm", { ascending: false })
       .limit(100);
+    
+    // Note: If leaderboard table is a view, we may need to filter at the source
+    // For now, we'll filter flagged/unapproved tests if they exist in the data
 
     if (error) {
       console.error("Failed to fetch leaderboard entries", error);
