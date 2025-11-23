@@ -734,7 +734,7 @@ const TypingTest = () => {
 
         <div className="max-w-4xl mx-auto">
           {testFinished && finalStats ? (
-            /* Test Results - Statistics */
+            // Test Results - Statistics
             <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -892,7 +892,7 @@ const TypingTest = () => {
               </CardContent>
             </Card>
           ) : (
-            /* Typing Test Area */
+            // Typing Test Area
             <div className="bg-card rounded-2xl p-8 shadow-lg border border-border">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                 <div className="bg-secondary/40 rounded-xl p-4 text-center">
@@ -954,8 +954,9 @@ const TypingTest = () => {
                     >
                       Finish Test
                     </Button>
-            )}
-          </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
