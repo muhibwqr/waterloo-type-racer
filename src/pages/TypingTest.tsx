@@ -9,12 +9,16 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CommandPalette from "@/components/CommandPalette";
 import { TrendingUp, Target, Clock, Zap, Trophy } from "lucide-react";
 import { computeTierFromWpm } from "@/lib/stats";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { UniversitySelector } from "@/components/UniversitySelector";
+import { type University } from "@/utils/universities";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
 
@@ -147,6 +151,7 @@ const initialStats: Stats = {
 };
 
 const TypingTest = () => {
+  const { user } = useAuth();
   const [testMode, setTestMode] = useState<TestMode>("time");
   const [duration, setDuration] = useState(30);
   const [typedText, setTypedText] = useState("");
@@ -170,6 +175,8 @@ const TypingTest = () => {
   const timeSeriesIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const typedTextRef = useRef("");
   const fullPromptRef = useRef("");
+  const [hasSubmittedScore, setHasSubmittedScore] = useState(false);
+  const [selectedUniversity, setSelectedUniversity] = useState<University | null>(null);
 
   // Generate infinite prompt by combining prompts
   const generateInfinitePrompt = useCallback(() => {
@@ -352,7 +359,10 @@ const TypingTest = () => {
 
   const typedPromptExactly = typedText === currentPrompt;
 
-  const canUploadScore = finalStats && testFinished && (finishReason === "time" || typedPromptExactly);
+  const canUploadScore = finalStats && testFinished && (finishReason === "time" || typedPromptExactly) && !hasSubmittedScore;
+
+  // Reset submission status on test restart
+  // Each test can be submitted once
 
   const getRandomPromptIndex = useCallback(
     (excludeIndex: number) => {
@@ -562,6 +572,11 @@ const TypingTest = () => {
       return;
     }
 
+    if (!selectedUniversity) {
+      toast.error("Please select your university before submitting.");
+      return;
+    }
+
     setIsSaving(true);
     const incorrectChars = Math.max(statsForUpload.totalChars - statsForUpload.correctChars, 0);
     const extraChars = Math.max(statsForUpload.totalChars - currentPrompt.length, 0);
@@ -572,7 +587,7 @@ const TypingTest = () => {
 
     try {
       const { error } = await supabase.from("typing_tests").insert({
-        user_id: null, // Anonymous submission
+        user_id: user?.id ?? null,
         test_mode: testMode,
         test_duration: duration,
         language: "english",
@@ -585,14 +600,18 @@ const TypingTest = () => {
         extra_chars: extraChars,
         missed_chars: missedChars,
         consistency: null,
-        username: "Anonymous",
+        username: user ? (user.user_metadata?.username ?? user.email?.split("@")[0] ?? "Anonymous") : "Anonymous",
         flagged: flagged,
+        university: selectedUniversity,
       });
 
       if (error) {
         throw error;
       }
 
+      // Mark as submitted to prevent future submissions
+      setHasSubmittedScore(true);
+      
       if (flagged) {
         toast.success("Score uploaded! Your test has been flagged for review and will appear on the leaderboard after admin approval.");
       } else {
@@ -834,28 +853,42 @@ const TypingTest = () => {
                   </div>
                 )}
 
+                {/* University Selector */}
+                <div className="space-y-2 pt-4 border-t border-border">
+                  <Label htmlFor="university-selector" className="text-sm font-medium">
+                    Select Your University
+                  </Label>
+                  <UniversitySelector
+                    value={selectedUniversity}
+                    onValueChange={setSelectedUniversity}
+                    disabled={hasSubmittedScore || isSaving}
+                  />
+                </div>
+
                 {/* Action Buttons */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
                   <Button
                     onClick={handleSaveScore}
-                    disabled={!canUploadScore || isSaving}
+                    disabled={!selectedUniversity || !canUploadScore || isSaving || hasSubmittedScore}
                     variant="outline"
                     className="min-w-[140px]"
                   >
-                    {isSaving ? "Uploading..." : "Upload Score"}
+                    {hasSubmittedScore 
+                      ? "Already Submitted" 
+                      : isSaving 
+                      ? "Uploading..." 
+                      : "Submit Score"}
                   </Button>
                   <Button
-                    onClick={() => handleRestart({ nextPrompt: true })}
+                    onClick={() => {
+                      setSelectedUniversity(null);
+                      handleRestart({ nextPrompt: true });
+                    }}
                     className="min-w-[140px]"
                   >
                     Take New Test
                   </Button>
                 </div>
-                {false && (
-                  <p className="text-xs text-muted-foreground text-center">
-                    Anyone can type; sign in or create an account to upload scores.
-                  </p>
-                )}
               </CardContent>
             </Card>
           ) : (
@@ -923,19 +956,6 @@ const TypingTest = () => {
                     </Button>
             )}
           </div>
-                <Button
-                  onClick={handleSaveScore}
-                  disabled={!user || !canUploadScore || isSaving}
-                  className="min-w-[140px]"
-                >
-                  {user ? (isSaving ? "Uploading..." : "Upload Score") : "Sign up to Upload"}
-                </Button>
-          </div>
-          {!user && (
-                <p className="text-xs text-muted-foreground text-right mt-2">
-                  Anyone can type; sign in or create an account to upload scores.
-              </p>
-              )}
             </div>
           )}
         </div>

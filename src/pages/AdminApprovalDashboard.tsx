@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -19,54 +20,47 @@ interface FlaggedTest {
 
 export default function AdminApprovalDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [tests, setTests] = useState<FlaggedTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState<string | null>(null);
-  const [adminUser, setAdminUser] = useState<any>(null);
 
   useEffect(() => {
-    // Check admin status from session
-    const checkAdmin = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        navigate("/admin-approval-auth");
-        return;
-      }
+    // Check admin status
+    if (!user) {
+      navigate("/admin-approval-auth");
+      return;
+    }
 
-      const userRole = session.user.app_metadata?.role;
-      if (userRole !== "admin") {
-        navigate("/admin-approval-auth");
-        return;
-      }
+    const userRole = user.app_metadata?.role;
+    if (userRole !== "admin") {
+      navigate("/admin-approval-auth");
+      return;
+    }
 
-      setAdminUser(session.user);
+    loadFlaggedTests();
 
-      loadFlaggedTests();
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel("flagged-tests-updates")
+      .on(
+        "postgres_changes",
+        { 
+          event: "*", 
+          schema: "public", 
+          table: "typing_tests", 
+          filter: "flagged=eq.true" 
+        },
+        () => {
+          void loadFlaggedTests();
+        }
+      )
+      .subscribe();
 
-      // Subscribe to real-time updates
-      const channel = supabase
-        .channel("flagged-tests-updates")
-        .on(
-          "postgres_changes",
-          { 
-            event: "*", 
-            schema: "public", 
-            table: "typing_tests", 
-            filter: "flagged=eq.true" 
-          },
-          () => {
-            void loadFlaggedTests();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+    return () => {
+      supabase.removeChannel(channel);
     };
-
-    void checkAdmin();
-  }, [navigate]);
+  }, [user, navigate]);
 
   const loadFlaggedTests = async () => {
     setLoading(true);
@@ -120,7 +114,7 @@ export default function AdminApprovalDashboard() {
         .update({
           approved: true,
           approved_at: new Date().toISOString(),
-          approved_by: adminUser?.id,
+          approved_by: user?.id,
         })
         .eq("id", testId);
 

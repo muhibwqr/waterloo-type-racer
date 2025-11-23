@@ -133,6 +133,7 @@ export type Database = {
           approved: boolean | null
           approved_at: string | null
           approved_by: string | null
+          university: string | null
         }
         Insert: {
           accuracy: number
@@ -156,6 +157,7 @@ export type Database = {
           approved?: boolean | null
           approved_at?: string | null
           approved_by?: string | null
+          university?: string | null
         }
         Update: {
           accuracy?: number
@@ -179,6 +181,7 @@ export type Database = {
           approved?: boolean | null
           approved_at?: string | null
           approved_by?: string | null
+          university?: string | null
         }
         Relationships: []
       }
