@@ -9,7 +9,6 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CommandPalette from "@/components/CommandPalette";
@@ -148,7 +147,6 @@ const initialStats: Stats = {
 };
 
 const TypingTest = () => {
-  const { user } = useAuth();
   const [testMode, setTestMode] = useState<TestMode>("time");
   const [duration, setDuration] = useState(30);
   const [typedText, setTypedText] = useState("");
@@ -172,8 +170,6 @@ const TypingTest = () => {
   const timeSeriesIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const typedTextRef = useRef("");
   const fullPromptRef = useRef("");
-  const [hasSubmittedScore, setHasSubmittedScore] = useState(false);
-  const [checkingSubmission, setCheckingSubmission] = useState(false);
 
   // Generate infinite prompt by combining prompts
   const generateInfinitePrompt = useCallback(() => {
@@ -356,34 +352,7 @@ const TypingTest = () => {
 
   const typedPromptExactly = typedText === currentPrompt;
 
-  const canUploadScore = finalStats && testFinished && (finishReason === "time" || typedPromptExactly) && !hasSubmittedScore;
-
-  // Check if user has already submitted a score
-  useEffect(() => {
-    const checkExistingScore = async () => {
-      if (!user?.id) {
-        setHasSubmittedScore(false);
-        return;
-      }
-
-      setCheckingSubmission(true);
-      const { data, error } = await supabase
-        .from("typing_tests")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (!error && data) {
-        setHasSubmittedScore(true);
-      } else {
-        setHasSubmittedScore(false);
-      }
-      setCheckingSubmission(false);
-    };
-
-    void checkExistingScore();
-  }, [user?.id]);
+  const canUploadScore = finalStats && testFinished && (finishReason === "time" || typedPromptExactly);
 
   const getRandomPromptIndex = useCallback(
     (excludeIndex: number) => {
@@ -593,23 +562,7 @@ const TypingTest = () => {
       return;
     }
 
-    if (!user) {
-      toast.info("Create an account to upload your scores and compete on the leaderboard.");
-      return;
-    }
-
-    // Check if user has already submitted a score
-    if (hasSubmittedScore) {
-      toast.error("You can only submit your score once. Your score has already been recorded.");
-      return;
-    }
-
     setIsSaving(true);
-    const { data: profileRow } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", user.id)
-      .maybeSingle();
     const incorrectChars = Math.max(statsForUpload.totalChars - statsForUpload.correctChars, 0);
     const extraChars = Math.max(statsForUpload.totalChars - currentPrompt.length, 0);
     const missedChars = Math.max(currentPrompt.length - statsForUpload.totalChars, 0);
@@ -619,7 +572,7 @@ const TypingTest = () => {
 
     try {
       const { error } = await supabase.from("typing_tests").insert({
-        user_id: user.id,
+        user_id: null, // Anonymous submission
         test_mode: testMode,
         test_duration: duration,
         language: "english",
@@ -632,7 +585,7 @@ const TypingTest = () => {
         extra_chars: extraChars,
         missed_chars: missedChars,
         consistency: null,
-        username: profileRow?.username ?? user.user_metadata?.username ?? user.email?.split("@")[0],
+        username: "Anonymous",
         flagged: flagged,
       });
 
@@ -640,9 +593,6 @@ const TypingTest = () => {
         throw error;
       }
 
-      // Mark as submitted to prevent future submissions
-      setHasSubmittedScore(true);
-      
       if (flagged) {
         toast.success("Score uploaded! Your test has been flagged for review and will appear on the leaderboard after admin approval.");
       } else {
@@ -888,17 +838,11 @@ const TypingTest = () => {
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
                   <Button
                     onClick={handleSaveScore}
-                    disabled={!user || !canUploadScore || isSaving || hasSubmittedScore || checkingSubmission}
+                    disabled={!canUploadScore || isSaving}
                     variant="outline"
                     className="min-w-[140px]"
                   >
-                    {checkingSubmission 
-                      ? "Checking..." 
-                      : hasSubmittedScore 
-                      ? "Already Submitted" 
-                      : user 
-                      ? (isSaving ? "Uploading..." : "Upload Score") 
-                      : "Sign up to Upload"}
+                    {isSaving ? "Uploading..." : "Upload Score"}
                   </Button>
                   <Button
                     onClick={() => handleRestart({ nextPrompt: true })}
@@ -907,7 +851,7 @@ const TypingTest = () => {
                     Take New Test
                   </Button>
                 </div>
-                {!user && (
+                {false && (
                   <p className="text-xs text-muted-foreground text-center">
                     Anyone can type; sign in or create an account to upload scores.
                   </p>
