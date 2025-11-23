@@ -40,7 +40,7 @@ const LeaderboardPage = () => {
     const { data, error } = await supabase
       .from("typing_tests")
       .select("university, wpm, accuracy, created_at")
-      .or("approved.eq.true,flagged.eq.false")
+      .or(`approved.eq.true,flagged.eq.false`)
       .not("university", "is", null)
       .order("created_at", { ascending: false });
 
