@@ -19,6 +19,7 @@ import { computeTierFromWpm } from "@/lib/stats";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { UniversitySelector } from "@/components/UniversitySelector";
 import { type University } from "@/utils/universities";
+import Aurora from "@/components/Aurora";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
 
@@ -687,17 +688,23 @@ const TypingTest = () => {
   };
 
   return (
-    <main className="min-h-screen pt-32 pb-20">
-      <div className="container mx-auto px-6">
+    <main className="min-h-screen pt-32 pb-20 relative">
+      <Aurora 
+        colorStops={['#0ea5e9', '#06b6d4', '#8b5cf6']}
+        amplitude={1.2}
+        blend={0.6}
+        speed={0.8}
+      />
+      <div className="container mx-auto px-6 relative z-10">
         <div className="max-w-4xl mx-auto mb-12">
           <div className="mb-8">
             <div className="text-center mb-2">
               <h1 className="text-4xl font-bold text-foreground">
-                Join Goose Typers
+                🪿 Join Goose Typers
               </h1>
             </div>
             <p className="text-muted-foreground text-sm mt-1 text-center">
-              Type your heart out with university-themed prompts. Compete with students from all universities.
+              For current students and graduates
             </p>
           </div>
 
