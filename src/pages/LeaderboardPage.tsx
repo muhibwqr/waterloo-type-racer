@@ -23,6 +23,8 @@ type DisplayRow = {
   school_name?: string | null;
   testCount?: number;
   credibilityTier?: string;
+  bestWpm?: number;
+  bestAccuracy?: number;
 };
 
 const totalSlots = 23;
@@ -55,7 +57,13 @@ const LeaderboardPage = () => {
     }
 
     // Group by university and calculate stats
-    const universityMap = new Map<string, { wpmValues: number[]; accuracyValues: number[]; count: number }>();
+    const universityMap = new Map<string, { 
+      wpmValues: number[]; 
+      accuracyValues: number[]; 
+      count: number;
+      bestWpm: number;
+      bestAccuracy: number;
+    }>();
     
     (data ?? []).forEach((entry) => {
       if (!entry.university) {
@@ -65,7 +73,13 @@ const LeaderboardPage = () => {
       
       const uni = entry.university.trim(); // Trim whitespace
       if (!universityMap.has(uni)) {
-        universityMap.set(uni, { wpmValues: [], accuracyValues: [], count: 0 });
+        universityMap.set(uni, { 
+          wpmValues: [], 
+          accuracyValues: [], 
+          count: 0,
+          bestWpm: 0,
+          bestAccuracy: 0,
+        });
       }
       
       const stats = universityMap.get(uni)!;
@@ -75,6 +89,14 @@ const LeaderboardPage = () => {
       const accuracy = entry.accuracy ?? 0;
       const normalizedAccuracy = Math.min(100, Math.max(0, Number(accuracy))); // Cap at 0-100%
       stats.accuracyValues.push(normalizedAccuracy);
+      
+      // Track best entry (highest WPM, and if tied, highest accuracy)
+      if (entry.wpm > stats.bestWpm || 
+          (entry.wpm === stats.bestWpm && normalizedAccuracy > stats.bestAccuracy)) {
+        stats.bestWpm = entry.wpm;
+        stats.bestAccuracy = normalizedAccuracy;
+      }
+      
       stats.count += 1;
     });
 
@@ -104,12 +126,12 @@ const LeaderboardPage = () => {
       // Tier based on adjusted WPM
       const tier = computeTierFromWpm(avgWpm, avgAccuracy);
 
-      console.log(`University: ${university}, Tests: ${stats.count}, Avg WPM: ${avgWpm}, Avg Accuracy: ${avgAccuracy?.toFixed(2)}%, Adjusted WPM: ${adjustedWpm}, Credibility: ${credibilityTier}, Final Score: ${credibilityScore}`);
+      console.log(`University: ${university}, Tests: ${stats.count}, Avg WPM: ${avgWpm}, Avg Accuracy: ${avgAccuracy?.toFixed(2)}%, Adjusted WPM: ${adjustedWpm}, Credibility: ${credibilityTier}, Final Score: ${credibilityScore}, Best: ${stats.bestWpm} WPM @ ${stats.bestAccuracy.toFixed(1)}%`);
 
       return {
         rank: 0, // Will be assigned after sorting
         name: university,
-        wpm: credibilityScore, // Use credibility-adjusted score for ranking
+        wpm: credibilityScore, // Use credibility-adjusted score for ranking (average-based)
         accuracy: avgAccuracy,
         program: university,
         tier: tier,
@@ -117,6 +139,8 @@ const LeaderboardPage = () => {
         school_name: university,
         testCount: stats.count,
         credibilityTier: credibilityTier,
+        bestWpm: stats.bestWpm,
+        bestAccuracy: stats.bestAccuracy,
       };
     });
 
@@ -197,6 +221,38 @@ const LeaderboardPage = () => {
     if (tier.startsWith("B")) return "bg-green-500/20 text-green-400 border-green-500/30";
     if (tier.startsWith("C")) return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30";
     return "bg-muted text-muted-foreground border-border";
+  };
+
+  const getCredibilityBadgeStyle = (tier: CredibilityTier | undefined): string => {
+    if (!tier) return "bg-muted text-muted-foreground border-border";
+    switch (tier) {
+      case "low":
+        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+      case "bronze":
+        return "bg-amber-700/20 text-amber-600 border-amber-700/30";
+      case "silver":
+        return "bg-gray-400/20 text-gray-300 border-gray-400/30";
+      case "gold":
+        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "platinum":
+        return "bg-cyan-500/20 text-cyan-400 border-cyan-500/30";
+    }
+  };
+
+  const getCredibilityTooltip = (tier: CredibilityTier | undefined, testCount: number | undefined): string => {
+    if (!tier || !testCount) return "Credibility rating based on number of tests submitted";
+    switch (tier) {
+      case "low":
+        return `Low Credibility (${testCount} ${testCount === 1 ? "test" : "tests"}): More tests needed for credibility boost`;
+      case "bronze":
+        return `Bronze Credibility (${testCount} tests): +2% ranking boost`;
+      case "silver":
+        return `Silver Credibility (${testCount} tests): +5% ranking boost`;
+      case "gold":
+        return `Gold Credibility (${testCount} tests): +10% ranking boost`;
+      case "platinum":
+        return `Platinum Credibility (${testCount} tests): +15% ranking boost`;
+    }
   };
 
   const placeholderBadgeLabel = "Awaiting University";
@@ -304,10 +360,15 @@ const LeaderboardPage = () => {
                       {isPlaceholder ? "—" : `${user.wpm} WPM`}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isPlaceholder || user.accuracy === null ? "Accuracy TBD" : `${user.accuracy.toFixed(1)}% accuracy`}
+                      {isPlaceholder || user.accuracy === null ? "Accuracy TBD" : `Avg: ${user.accuracy.toFixed(1)}% accuracy`}
                     </p>
+                    {!isPlaceholder && user.bestWpm && user.bestWpm > 0 && (
+                      <p className="text-sm text-primary/80 font-semibold mt-1">
+                        Best: {user.bestWpm} WPM @ {user.bestAccuracy?.toFixed(1) ?? "0"}% accuracy
+                      </p>
+                    )}
                     {!isPlaceholder && user.testCount && (
-                      <span className="inline-block text-xs px-3 py-1 bg-card rounded-full border border-border">
+                      <span className="inline-block text-xs px-3 py-1 bg-card rounded-full border border-border mt-2">
                         {user.testCount} {user.testCount === 1 ? "test" : "tests"}
                       </span>
                     )}
@@ -368,8 +429,13 @@ const LeaderboardPage = () => {
                   <div className="text-right">
                     <div className="text-2xl font-bold text-primary">{user.wpm} WPM</div>
                       <p className="text-sm text-muted-foreground">
-                        {user.accuracy === null ? "Accuracy TBD" : `${user.accuracy.toFixed(1)}% acc`}
+                        {user.accuracy === null ? "Accuracy TBD" : `Avg: ${user.accuracy.toFixed(1)}% acc`}
                       </p>
+                      {user.bestWpm && user.bestWpm > 0 && (
+                        <p className="text-sm text-primary/80 font-semibold mt-1">
+                          Best: {user.bestWpm} WPM @ {user.bestAccuracy?.toFixed(1) ?? "0"}%
+                        </p>
+                      )}
                       {user.testCount && (
                         <p className="text-xs text-muted-foreground mt-1">
                           {user.testCount} {user.testCount === 1 ? "test" : "tests"}
