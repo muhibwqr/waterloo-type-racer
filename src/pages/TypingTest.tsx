@@ -577,6 +577,22 @@ const TypingTest = () => {
       return;
     }
 
+    // Validate test results - reject invalid tests
+    const wpm = statsForUpload.wpm;
+    const accuracy = statsForUpload.accuracy;
+
+    // Reject tests with WPM below 15 (too slow, likely not a real test)
+    if (wpm < 15) {
+      toast.error("Test rejected: WPM too low (minimum 15 WPM required).");
+      return;
+    }
+
+    // Reject tests with WPM above 150 AND accuracy below 10% (likely spam/random typing)
+    if (wpm > 150 && accuracy < 10) {
+      toast.error("Test rejected: High speed with very low accuracy suggests invalid test.");
+      return;
+    }
+
     setIsSaving(true);
 
     try {

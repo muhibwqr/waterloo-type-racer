@@ -63,7 +63,10 @@ const LeaderboardPage = () => {
       count: number;
       bestWpm: number;
       bestAccuracy: number;
+      allEntries: Array<{ wpm: number; accuracy: number }>;
     }>();
+    
+    const MIN_DECENT_ACCURACY = 85; // Minimum accuracy threshold for "best" entry
     
     (data ?? []).forEach((entry) => {
       if (!entry.university) {
@@ -79,6 +82,7 @@ const LeaderboardPage = () => {
           count: 0,
           bestWpm: 0,
           bestAccuracy: 0,
+          allEntries: [],
         });
       }
       
@@ -90,14 +94,40 @@ const LeaderboardPage = () => {
       const normalizedAccuracy = Math.min(100, Math.max(0, Number(accuracy))); // Cap at 0-100%
       stats.accuracyValues.push(normalizedAccuracy);
       
-      // Track best entry (highest WPM, and if tied, highest accuracy)
-      if (entry.wpm > stats.bestWpm || 
-          (entry.wpm === stats.bestWpm && normalizedAccuracy > stats.bestAccuracy)) {
-        stats.bestWpm = entry.wpm;
-        stats.bestAccuracy = normalizedAccuracy;
-      }
+      // Store all entries for best score calculation
+      stats.allEntries.push({ wpm: entry.wpm, accuracy: normalizedAccuracy });
       
       stats.count += 1;
+    });
+    
+    // Calculate best entry for each university (high speed + decent accuracy)
+    universityMap.forEach((stats, university) => {
+      // Filter entries with at least decent accuracy
+      const decentEntries = stats.allEntries.filter(entry => entry.accuracy >= MIN_DECENT_ACCURACY);
+      
+      if (decentEntries.length > 0) {
+        // Find entry with highest WPM among decent accuracy entries
+        const bestEntry = decentEntries.reduce((best, current) => {
+          if (current.wpm > best.wpm || 
+              (current.wpm === best.wpm && current.accuracy > best.accuracy)) {
+            return current;
+          }
+          return best;
+        });
+        stats.bestWpm = bestEntry.wpm;
+        stats.bestAccuracy = bestEntry.accuracy;
+      } else {
+        // Fallback: if no entries meet accuracy threshold, use highest WPM regardless
+        const bestEntry = stats.allEntries.reduce((best, current) => {
+          if (current.wpm > best.wpm || 
+              (current.wpm === best.wpm && current.accuracy > best.accuracy)) {
+            return current;
+          }
+          return best;
+        });
+        stats.bestWpm = bestEntry.wpm;
+        stats.bestAccuracy = bestEntry.accuracy;
+      }
     });
 
     console.log(`Grouped ${universityMap.size} universities from ${data?.length ?? 0} test entries`);
