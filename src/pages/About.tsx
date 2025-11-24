@@ -6,23 +6,23 @@ const About = () => {
   const features = [
     {
       icon: Trophy,
-      title: "Compete & Rank",
-      description: "Real-time leaderboards and competitive rankings for students from all universities",
+      title: "University Leaderboard",
+      description: "See which university has the fastest typers. Rankings are based on average WPM across all submissions from each university.",
     },
     {
       icon: Zap,
-      title: "Live Typing Sprints",
-      description: "Race against time or compete in real-time typing challenges",
+      title: "Timed Typing Tests",
+      description: "Test your speed with 15s, 30s, or 60s challenges. Submit your best scores to represent your university.",
     },
     {
       icon: BarChart3,
-      title: "Track Performance",
-      description: "Monitor your WPM, accuracy, consistency, and detailed statistics",
+      title: "Detailed Analytics",
+      description: "Track your WPM, accuracy, and performance over time with real-time statistics and performance graphs.",
     },
     {
       icon: Lock,
-      title: "University Competition",
-      description: "Join a community of students from all universities improving their typing skills together",
+      title: "Open to All",
+      description: "No sign-up required. Simply select your university and start typing. See how your school ranks against others.",
     },
   ];
 
@@ -37,7 +37,7 @@ const About = () => {
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Competitive typing platform for students from all universities worldwide
+            Open to all university students and graduates. Compete to see which university has the best typers.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-8 justify-center">
@@ -102,7 +102,7 @@ const About = () => {
         <div className="max-w-2xl mx-auto text-center mt-20 p-12 bg-primary/10 rounded-3xl border border-primary">
           <h2 className="text-3xl font-bold mb-4 text-foreground">Ready to Start?</h2>
           <p className="text-lg text-muted-foreground mb-8">
-            Join hundreds of students from universities worldwide improving their typing skills
+            Join students and graduates from universities worldwide. Help your university climb the leaderboard and prove which school has the best typers.
           </p>
           <Link to="/">
             <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-10 py-6">
@@ -110,7 +110,7 @@ const About = () => {
             </Button>
           </Link>
           <p className="text-sm text-muted-foreground mt-4">
-            Open to all universities • ID verification required • Free forever
+            Open to all university students and graduates • Free forever • No sign-up required
           </p>
         </div>
       </div>
