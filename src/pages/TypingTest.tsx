@@ -578,30 +578,17 @@ const TypingTest = () => {
     }
 
     setIsSaving(true);
-    const incorrectChars = Math.max(statsForUpload.totalChars - statsForUpload.correctChars, 0);
-    const extraChars = Math.max(statsForUpload.totalChars - currentPrompt.length, 0);
-    const missedChars = Math.max(currentPrompt.length - statsForUpload.totalChars, 0);
-
-    // Flag suspicious tests: WPM > 130 or (accuracy > 98% AND WPM > 110)
-    const flagged = statsForUpload.wpm > 130 || (statsForUpload.accuracy > 98 && statsForUpload.wpm > 110);
 
     try {
-      const { error } = await supabase.from("typing_tests").insert({
-        user_id: user?.id ?? null,
-        test_mode: testMode,
-        test_duration: duration,
-        language: "english",
+      // Generate UUID for anonymous users if needed
+      // Note: Supabase will auto-generate if user_id is null, but we provide one for consistency
+      const userId = user?.id ?? crypto.randomUUID();
+
+      const { error } = await supabase.from("typing_tests_seed").insert({
+        user_id: userId,
         wpm: statsForUpload.wpm,
         raw_wpm: statsForUpload.wpm,
         accuracy: statsForUpload.accuracy,
-        word_count: statsForUpload.words,
-        correct_chars: statsForUpload.correctChars,
-        incorrect_chars: incorrectChars,
-        extra_chars: extraChars,
-        missed_chars: missedChars,
-        consistency: null,
-        username: user ? (user.user_metadata?.username ?? user.email?.split("@")[0] ?? "Anonymous") : "Anonymous",
-        flagged: flagged,
         university: selectedUniversity,
       });
 
@@ -611,12 +598,7 @@ const TypingTest = () => {
 
       // Mark as submitted to prevent future submissions
       setHasSubmittedScore(true);
-      
-      if (flagged) {
-        toast.success("Score uploaded! Your test has been flagged for review and will appear on the leaderboard after admin approval.");
-      } else {
-        toast.success("Score uploaded! Nice typing.");
-      }
+      toast.success("Score uploaded! Nice typing.");
     } catch (uploadError) {
       console.error("Failed to upload score", uploadError);
       toast.error("We couldn't upload your score. Please try again.");
