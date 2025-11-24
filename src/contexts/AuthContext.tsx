@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (event === 'SIGNED_IN') {
           if (session?.user?.email_confirmed_at) {
-            toast.success("Email verified! Welcome to GooseType!");
+            toast.success("Email verified! 🪿 Welcome to GooseType!");
           } else {
             toast.success("Welcome back!");
           }
