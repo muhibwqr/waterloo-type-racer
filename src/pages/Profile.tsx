@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Clock, Target, TrendingUp, Loader2, Pencil } from "lucide-react";
 import { format } from "date-fns";
-import { computeTierFromWpm, formatDuration } from "@/lib/stats";
+import { computeTierFromWpm, formatDuration, calculateAdjustedWpm } from "@/lib/stats";
 import {
   Dialog,
   DialogContent,
@@ -143,8 +143,9 @@ const Profile = () => {
   const tierLabel = useMemo(() => {
     if (profile?.tier) return profile.tier;
     const best = computedStats.bestWpm ?? 0;
-    return computeTierFromWpm(best);
-  }, [computedStats.bestWpm, profile?.tier]);
+    const bestAccuracy = computedStats.bestAccuracy ?? 100;
+    return computeTierFromWpm(best, bestAccuracy);
+  }, [computedStats.bestWpm, computedStats.bestAccuracy, profile?.tier]);
 
   const recentTests = tests.slice(0, 5);
 

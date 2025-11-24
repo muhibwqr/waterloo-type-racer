@@ -339,7 +339,7 @@ const TypingTest = () => {
       }
       
       // Announce tier
-      const tier = computeTierFromWpm(stats.wpm);
+      const tier = computeTierFromWpm(stats.wpm, stats.accuracy);
       toast.success(
         `${tier} Tier - ${stats.wpm} WPM @ ${stats.accuracy.toFixed(1)}% accuracy`,
         { 

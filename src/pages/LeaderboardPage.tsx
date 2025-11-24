@@ -76,7 +76,7 @@ const LeaderboardPage = () => {
 
     console.log(`Grouped ${universityMap.size} universities from ${data?.length ?? 0} test entries`);
 
-    // Convert to DisplayRow format - calculate proper averages
+    // Convert to DisplayRow format - calculate proper averages with accuracy adjustment
     const formatted: DisplayRow[] = Array.from(universityMap.entries()).map(([university, stats]) => {
       // Calculate average WPM (sum all WPM values, divide by count)
       const avgWpm = stats.wpmValues.length > 0 
@@ -88,14 +88,20 @@ const LeaderboardPage = () => {
         ? Math.min(100, Math.max(0, stats.accuracyValues.reduce((sum, val) => sum + val, 0) / stats.accuracyValues.length))
         : null;
       
-      const tier = computeTierFromWpm(avgWpm);
+      // Calculate adjusted WPM (factoring in accuracy)
+      const adjustedWpm = avgAccuracy !== null 
+        ? Math.round(avgWpm * (avgAccuracy / 100))
+        : avgWpm;
+      
+      // Tier based on adjusted WPM
+      const tier = computeTierFromWpm(avgWpm, avgAccuracy);
 
-      console.log(`University: ${university}, Tests: ${stats.count}, Avg WPM: ${avgWpm}, Avg Accuracy: ${avgAccuracy?.toFixed(2)}%`);
+      console.log(`University: ${university}, Tests: ${stats.count}, Avg WPM: ${avgWpm}, Avg Accuracy: ${avgAccuracy?.toFixed(2)}%, Adjusted WPM: ${adjustedWpm}`);
 
       return {
         rank: 0, // Will be assigned after sorting
         name: university,
-        wpm: avgWpm,
+        wpm: adjustedWpm, // Use adjusted WPM for ranking
         accuracy: avgAccuracy,
         program: university,
         tier: tier,
@@ -105,7 +111,7 @@ const LeaderboardPage = () => {
       };
     });
 
-    // Sort by average WPM descending and assign ranks
+    // Sort by adjusted WPM (which factors in accuracy) descending and assign ranks
     const sorted = formatted.sort((a, b) => b.wpm - a.wpm);
     const combined = sorted
       .map((row, index) => ({

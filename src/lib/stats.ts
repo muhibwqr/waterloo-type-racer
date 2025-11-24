@@ -1,10 +1,27 @@
-export const computeTierFromWpm = (wpm: number): string => {
-  if (wpm >= 140) return "S+";
-  if (wpm >= 125) return "S";
-  if (wpm >= 115) return "A+";
-  if (wpm >= 105) return "A";
-  if (wpm >= 95) return "B";
-  if (wpm >= 85) return "C";
+/**
+ * Calculate adjusted WPM that factors in accuracy
+ * Lower accuracy = lower effective WPM
+ */
+export const calculateAdjustedWpm = (wpm: number, accuracy: number): number => {
+  const normalizedAccuracy = Math.min(100, Math.max(0, accuracy)) / 100;
+  return Math.round(wpm * normalizedAccuracy);
+};
+
+/**
+ * Compute tier based on WPM, adjusted for accuracy
+ */
+export const computeTierFromWpm = (wpm: number, accuracy?: number | null): string => {
+  // If accuracy is provided, use adjusted WPM
+  const effectiveWpm = accuracy !== null && accuracy !== undefined 
+    ? calculateAdjustedWpm(wpm, accuracy)
+    : wpm;
+  
+  if (effectiveWpm >= 140) return "S+";
+  if (effectiveWpm >= 125) return "S";
+  if (effectiveWpm >= 115) return "A+";
+  if (effectiveWpm >= 105) return "A";
+  if (effectiveWpm >= 95) return "B";
+  if (effectiveWpm >= 85) return "C";
   return "D";
 };
 
