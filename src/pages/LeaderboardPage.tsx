@@ -54,9 +54,12 @@ const LeaderboardPage = () => {
     const universityMap = new Map<string, { wpmValues: number[]; accuracyValues: number[]; count: number }>();
     
     (data ?? []).forEach((entry) => {
-      if (!entry.university) return;
+      if (!entry.university) {
+        console.warn("Entry missing university:", entry);
+        return;
+      }
       
-      const uni = entry.university;
+      const uni = entry.university.trim(); // Trim whitespace
       if (!universityMap.has(uni)) {
         universityMap.set(uni, { wpmValues: [], accuracyValues: [], count: 0 });
       }
@@ -71,19 +74,23 @@ const LeaderboardPage = () => {
       stats.count += 1;
     });
 
+    console.log(`Grouped ${universityMap.size} universities from ${data?.length ?? 0} test entries`);
+
     // Convert to DisplayRow format - calculate proper averages
     const formatted: DisplayRow[] = Array.from(universityMap.entries()).map(([university, stats]) => {
-      // Calculate average WPM
+      // Calculate average WPM (sum all WPM values, divide by count)
       const avgWpm = stats.wpmValues.length > 0 
         ? Math.round(stats.wpmValues.reduce((sum, val) => sum + val, 0) / stats.wpmValues.length)
         : 0;
       
-      // Calculate average accuracy
+      // Calculate average accuracy (sum all accuracy values, divide by count)
       const avgAccuracy = stats.accuracyValues.length > 0
         ? Math.min(100, Math.max(0, stats.accuracyValues.reduce((sum, val) => sum + val, 0) / stats.accuracyValues.length))
         : null;
       
       const tier = computeTierFromWpm(avgWpm);
+
+      console.log(`University: ${university}, Tests: ${stats.count}, Avg WPM: ${avgWpm}, Avg Accuracy: ${avgAccuracy?.toFixed(2)}%`);
 
       return {
         rank: 0, // Will be assigned after sorting

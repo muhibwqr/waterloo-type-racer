@@ -581,27 +581,46 @@ const TypingTest = () => {
 
     try {
       // Generate UUID for anonymous users if needed
-      // Note: Supabase will auto-generate if user_id is null, but we provide one for consistency
       const userId = user?.id ?? crypto.randomUUID();
 
-      const { error } = await supabase.from("typing_tests_seed").insert({
+      // Prepare the data to insert
+      const insertData = {
         user_id: userId,
         wpm: statsForUpload.wpm,
         raw_wpm: statsForUpload.wpm,
-        accuracy: statsForUpload.accuracy,
+        accuracy: Number(statsForUpload.accuracy.toFixed(2)), // Ensure accuracy is a number with 2 decimal places
         university: selectedUniversity,
-      });
+      };
+
+      // Validate university is set
+      if (!insertData.university) {
+        throw new Error("University is required");
+      }
+
+      console.log("Inserting test data:", insertData);
+
+      const { data: insertedData, error } = await supabase
+        .from("typing_tests_seed")
+        .insert(insertData)
+        .select()
+        .single();
 
       if (error) {
+        console.error("Supabase insert error:", error);
         throw error;
       }
 
+      console.log("Successfully inserted test:", insertedData);
+
       // Mark as submitted to prevent future submissions
       setHasSubmittedScore(true);
-      toast.success("Score uploaded! Nice typing.");
+      toast.success(`Score uploaded to ${selectedUniversity}! Nice typing.`);
     } catch (uploadError) {
       console.error("Failed to upload score", uploadError);
-      toast.error("We couldn't upload your score. Please try again.");
+      const errorMessage = uploadError instanceof Error 
+        ? uploadError.message 
+        : "We couldn't upload your score. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -850,7 +869,7 @@ const TypingTest = () => {
                 {/* Action Buttons */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
                   <Button
-                    onClick={handleSaveScore}
+                    onClick={() => handleSaveScore()}
                     disabled={!selectedUniversity || !canUploadScore || isSaving || hasSubmittedScore}
                     variant="outline"
                     className="min-w-[140px]"

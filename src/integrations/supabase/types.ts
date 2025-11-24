@@ -185,6 +185,33 @@ export type Database = {
         }
         Relationships: []
       }
+      typing_tests_seed: {
+        Row: {
+          id: number
+          user_id: string
+          wpm: number
+          raw_wpm: number
+          accuracy: number | null
+          university: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          wpm: number
+          raw_wpm: number
+          accuracy?: number | null
+          university: string
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          wpm?: number
+          raw_wpm?: number
+          accuracy?: number | null
+          university?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
