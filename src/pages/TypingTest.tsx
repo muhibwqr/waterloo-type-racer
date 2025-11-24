@@ -19,7 +19,6 @@ import { computeTierFromWpm } from "@/lib/stats";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { UniversitySelector } from "@/components/UniversitySelector";
 import { type University } from "@/utils/universities";
-import Aurora from "@/components/Aurora";
 
 type TestMode = "time" | "words" | "quote" | "zen" | "custom";
 
@@ -688,14 +687,8 @@ const TypingTest = () => {
   };
 
   return (
-    <main className="min-h-screen pt-32 pb-20 relative">
-      <Aurora 
-        colorStops={['#0ea5e9', '#06b6d4', '#8b5cf6']}
-        amplitude={1.2}
-        blend={0.6}
-        speed={0.8}
-      />
-      <div className="container mx-auto px-6 relative z-10">
+    <main className="min-h-screen pt-32 pb-20">
+      <div className="container mx-auto px-6">
         <div className="max-w-4xl mx-auto mb-12">
           <div className="mb-8">
             <div className="text-center mb-2">
@@ -743,7 +736,7 @@ const TypingTest = () => {
         <div className="max-w-4xl mx-auto">
           {testFinished && finalStats ? (
             // Test Results - Statistics
-            <Card className="bg-card border-border">
+            <Card className="bg-card/80 backdrop-blur-sm border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   Test Results
@@ -901,7 +894,7 @@ const TypingTest = () => {
             </Card>
           ) : (
             // Typing Test Area
-            <div className="bg-card rounded-2xl p-8 shadow-lg border border-border">
+            <div className="bg-card/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-border">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                 <div className="bg-secondary/40 rounded-xl p-4 text-center">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Time Left</p>
