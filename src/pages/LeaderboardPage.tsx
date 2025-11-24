@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { computeTierFromWpm } from "@/lib/stats";
 import { getSchoolNameFromEmail } from "@/utils/emailToSchool";
+import { getCredibilityTier, calculateCredibilityScore, getCredibilityTierName, type CredibilityTier } from "@/lib/credibility";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertCircle } from "lucide-react";
 
 type DisplayRow = {
   rank: number;
@@ -19,6 +22,7 @@ type DisplayRow = {
   createdAt: string | null;
   school_name?: string | null;
   testCount?: number;
+  credibilityTier?: string;
 };
 
 const totalSlots = 23;
@@ -93,25 +97,30 @@ const LeaderboardPage = () => {
         ? Math.round(avgWpm * (avgAccuracy / 100))
         : avgWpm;
       
+      // Apply credibility boost
+      const credibilityTier = getCredibilityTier(stats.count);
+      const credibilityScore = calculateCredibilityScore(adjustedWpm, stats.count);
+      
       // Tier based on adjusted WPM
       const tier = computeTierFromWpm(avgWpm, avgAccuracy);
 
-      console.log(`University: ${university}, Tests: ${stats.count}, Avg WPM: ${avgWpm}, Avg Accuracy: ${avgAccuracy?.toFixed(2)}%, Adjusted WPM: ${adjustedWpm}`);
+      console.log(`University: ${university}, Tests: ${stats.count}, Avg WPM: ${avgWpm}, Avg Accuracy: ${avgAccuracy?.toFixed(2)}%, Adjusted WPM: ${adjustedWpm}, Credibility: ${credibilityTier}, Final Score: ${credibilityScore}`);
 
       return {
         rank: 0, // Will be assigned after sorting
         name: university,
-        wpm: adjustedWpm, // Use adjusted WPM for ranking
+        wpm: credibilityScore, // Use credibility-adjusted score for ranking
         accuracy: avgAccuracy,
         program: university,
         tier: tier,
         createdAt: null, // University aggregate doesn't have a single created_at
         school_name: university,
         testCount: stats.count,
+        credibilityTier: credibilityTier,
       };
     });
 
-    // Sort by adjusted WPM (which factors in accuracy) descending and assign ranks
+    // Sort by credibility-adjusted score (which factors in accuracy and test count) descending and assign ranks
     const sorted = formatted.sort((a, b) => b.wpm - a.wpm);
     const combined = sorted
       .map((row, index) => ({
@@ -265,15 +274,32 @@ const LeaderboardPage = () => {
                       #{user.rank}
                     </div>
                     <h3 className="font-bold text-xl text-foreground">{user.name}</h3>
-                    <Badge
-                      className={
-                        isPlaceholder
-                          ? "bg-muted text-muted-foreground border-border"
-                          : getTierColor(user.tier ?? "D")
-                      }
-                    >
-                      {isPlaceholder ? placeholderBadgeLabel : `${user.tier ?? "D"} Tier`}
-                    </Badge>
+                    <div className="flex items-center gap-2 justify-center flex-wrap">
+                      <Badge
+                        className={
+                          isPlaceholder
+                            ? "bg-muted text-muted-foreground border-border"
+                            : getTierColor(user.tier ?? "D")
+                        }
+                      >
+                        {isPlaceholder ? placeholderBadgeLabel : `${user.tier ?? "D"} Tier`}
+                      </Badge>
+                      {!isPlaceholder && user.credibilityTier && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className={getCredibilityBadgeStyle(user.credibilityTier)}>
+                              {user.credibilityTier === "low" ? (
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                              ) : null}
+                              {getCredibilityTierName(user.credibilityTier)}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{getCredibilityTooltip(user.credibilityTier, user.testCount)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                     <div className="text-4xl font-bold text-primary">
                       {isPlaceholder ? "—" : `${user.wpm} WPM`}
                     </div>
@@ -306,9 +332,26 @@ const LeaderboardPage = () => {
                   </div>
                   <div className="flex-1">
                     <h4 className="font-bold text-lg text-foreground mb-1">{user.name}</h4>
-                    <span className="text-xs px-3 py-1 bg-background rounded-full border border-border">
-                      {user.program ?? placeholderProgram}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs px-3 py-1 bg-background rounded-full border border-border">
+                        {user.program ?? placeholderProgram}
+                      </span>
+                      {!user.isPlaceholder && user.credibilityTier && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge className={getCredibilityBadgeStyle(user.credibilityTier)}>
+                              {user.credibilityTier === "low" ? (
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                              ) : null}
+                              {getCredibilityTierName(user.credibilityTier)}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{getCredibilityTooltip(user.credibilityTier, user.testCount)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {user.isPlaceholder ? (
@@ -317,9 +360,11 @@ const LeaderboardPage = () => {
                   </div>
                 ) : (
                 <div className="flex items-center gap-6">
-                    <Badge className={getTierColor(user.tier ?? "D")}>
-                      {user.tier ?? "D"} Tier
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getTierColor(user.tier ?? "D")}>
+                        {user.tier ?? "D"} Tier
+                      </Badge>
+                    </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-primary">{user.wpm} WPM</div>
                       <p className="text-sm text-muted-foreground">

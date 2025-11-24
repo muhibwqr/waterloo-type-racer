@@ -10,6 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Clock, Target, TrendingUp, Loader2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { computeTierFromWpm, formatDuration, calculateAdjustedWpm } from "@/lib/stats";
+import { getCredibilityTier, getCredibilityTierName, calculateCredibilityScore, type CredibilityTier } from "@/lib/credibility";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -147,6 +150,41 @@ const Profile = () => {
     return computeTierFromWpm(best, bestAccuracy);
   }, [computedStats.bestWpm, computedStats.bestAccuracy, profile?.tier]);
 
+  const credibilityTier = useMemo(() => {
+    const testCount = computedStats.totalTests;
+    return getCredibilityTier(testCount);
+  }, [computedStats.totalTests]);
+
+  const getCredibilityBadgeStyle = (tier: CredibilityTier): string => {
+    switch (tier) {
+      case "low":
+        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+      case "bronze":
+        return "bg-amber-700/20 text-amber-600 border-amber-700/30";
+      case "silver":
+        return "bg-gray-400/20 text-gray-300 border-gray-400/30";
+      case "gold":
+        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "platinum":
+        return "bg-cyan-500/20 text-cyan-400 border-cyan-500/30";
+    }
+  };
+
+  const getCredibilityTooltip = (tier: CredibilityTier, testCount: number): string => {
+    switch (tier) {
+      case "low":
+        return `Low Credibility (${testCount} ${testCount === 1 ? "test" : "tests"}): More tests needed for credibility boost`;
+      case "bronze":
+        return `Bronze Credibility (${testCount} tests): +2% ranking boost`;
+      case "silver":
+        return `Silver Credibility (${testCount} tests): +5% ranking boost`;
+      case "gold":
+        return `Gold Credibility (${testCount} tests): +10% ranking boost`;
+      case "platinum":
+        return `Platinum Credibility (${testCount} tests): +15% ranking boost`;
+    }
+  };
+
   const recentTests = tests.slice(0, 5);
 
   const openEditDialog = () => {
@@ -244,9 +282,26 @@ const Profile = () => {
             </AvatarFallback>
           </Avatar>
           <h1 className="text-4xl font-bold text-foreground mb-2">{profile?.username ?? user.email?.split("@")[0]}</h1>
-          <Badge className="bg-primary/20 text-primary border-primary/30 text-lg px-4 py-1">
-            {tierLabel} TIER
-          </Badge>
+          <div className="flex items-center gap-3 justify-center flex-wrap mb-4">
+            <Badge className="bg-primary/20 text-primary border-primary/30 text-lg px-4 py-1">
+              {tierLabel} TIER
+            </Badge>
+            {computedStats.totalTests > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className={`${getCredibilityBadgeStyle(credibilityTier)} text-lg px-4 py-1`}>
+                    {credibilityTier === "low" ? (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    ) : null}
+                    {getCredibilityTierName(credibilityTier)}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{getCredibilityTooltip(credibilityTier, computedStats.totalTests)}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground mt-4">
             Member since{" "}
             {profile?.created_at
