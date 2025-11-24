@@ -35,14 +35,12 @@ const LeaderboardPage = () => {
     setLoading(true);
     setFetchError(null);
 
-    // Fetch from typing_tests table, grouped by university
-    // Only show approved tests or non-flagged tests
+    // Fetch from typing_tests_seed table, grouped by university
     const { data, error } = await supabase
-      .from("typing_tests")
-      .select("university, wpm, accuracy, created_at")
-      .or(`approved.eq.true,flagged.eq.false`)
+      .from("typing_tests_seed")
+      .select("university, wpm, accuracy")
       .not("university", "is", null)
-      .order("created_at", { ascending: false });
+      .order("wpm", { ascending: false });
 
     if (error) {
       console.error("Failed to fetch leaderboard entries", error);
@@ -53,27 +51,38 @@ const LeaderboardPage = () => {
     }
 
     // Group by university and calculate stats
-    const universityMap = new Map<string, { wpmSum: number; accuracySum: number; count: number; entries: typeof data }>();
+    const universityMap = new Map<string, { wpmValues: number[]; accuracyValues: number[]; count: number }>();
     
     (data ?? []).forEach((entry) => {
       if (!entry.university) return;
       
       const uni = entry.university;
       if (!universityMap.has(uni)) {
-        universityMap.set(uni, { wpmSum: 0, accuracySum: 0, count: 0, entries: [] });
+        universityMap.set(uni, { wpmValues: [], accuracyValues: [], count: 0 });
       }
       
       const stats = universityMap.get(uni)!;
-      stats.wpmSum += entry.wpm;
-      stats.accuracySum += (entry.accuracy ?? 0);
+      // Store individual values for proper averaging
+      stats.wpmValues.push(entry.wpm);
+      // Ensure accuracy is between 0 and 100 (cap invalid values)
+      const accuracy = entry.accuracy ?? 0;
+      const normalizedAccuracy = Math.min(100, Math.max(0, Number(accuracy))); // Cap at 0-100%
+      stats.accuracyValues.push(normalizedAccuracy);
       stats.count += 1;
-      stats.entries.push(entry);
     });
 
-    // Convert to DisplayRow format
+    // Convert to DisplayRow format - calculate proper averages
     const formatted: DisplayRow[] = Array.from(universityMap.entries()).map(([university, stats]) => {
-      const avgWpm = Math.round(stats.wpmSum / stats.count);
-      const avgAccuracy = stats.count > 0 ? stats.accuracySum / stats.count : null;
+      // Calculate average WPM
+      const avgWpm = stats.wpmValues.length > 0 
+        ? Math.round(stats.wpmValues.reduce((sum, val) => sum + val, 0) / stats.wpmValues.length)
+        : 0;
+      
+      // Calculate average accuracy
+      const avgAccuracy = stats.accuracyValues.length > 0
+        ? Math.min(100, Math.max(0, stats.accuracyValues.reduce((sum, val) => sum + val, 0) / stats.accuracyValues.length))
+        : null;
+      
       const tier = computeTierFromWpm(avgWpm);
 
       return {
@@ -83,7 +92,7 @@ const LeaderboardPage = () => {
         accuracy: avgAccuracy,
         program: university,
         tier: tier,
-        createdAt: stats.entries[0]?.created_at ?? null,
+        createdAt: null, // University aggregate doesn't have a single created_at
         school_name: university,
         testCount: stats.count,
       };
@@ -113,10 +122,10 @@ const LeaderboardPage = () => {
     void initialize();
 
     const channel = supabase
-      .channel("typing-tests-updates")
+      .channel("typing-tests-seed-updates")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "typing_tests" },
+        { event: "*", schema: "public", table: "typing_tests_seed" },
         () => {
           void loadLeaderboard();
         },
