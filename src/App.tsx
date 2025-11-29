@@ -28,7 +28,7 @@ const App = () => (
         <BrowserRouter>
           <div className="min-h-screen bg-background flex flex-col relative">
             <Iridescence 
-              color={[0.55, 0.42, 0.96]}
+              color={[0.15, 0.1, 0.25]}
               speed={1.0}
               amplitude={0.1}
               mouseReact={true}
