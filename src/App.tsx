@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
-import Aurora from "@/components/Aurora";
+import Iridescence from "@/components/Iridescence";
 import TypingTest from "@/pages/TypingTest";
 import Leaderboard from "@/pages/LeaderboardPage";
 import Profile from "@/pages/Profile";
@@ -27,11 +27,11 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <div className="min-h-screen bg-background flex flex-col relative">
-            <Aurora 
-              colorStops={['#0ea5e9', '#06b6d4', '#8b5cf6']}
-              amplitude={1.2}
-              blend={0.6}
-              speed={0.8}
+            <Iridescence 
+              color={[0.55, 0.42, 0.96]}
+              speed={1.0}
+              amplitude={0.1}
+              mouseReact={true}
             />
             <Navigation />
             <main className="flex-1 relative z-10">
