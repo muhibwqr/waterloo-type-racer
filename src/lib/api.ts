@@ -10,11 +10,13 @@ export interface TypingTestResult {
 }
 
 export const saveTypingTestScore = async (data: TypingTestResult) => {
-  const { data: insertedData, error } = await supabase
-    .from("typing_tests_seed")
-    .insert(data)
-    .select()
-    .single();
+  const { data: insertedData, error } = await supabase.rpc("submit_typing_test", {
+    p_user_id: data.user_id,
+    p_wpm: data.wpm,
+    p_raw_wpm: data.raw_wpm,
+    p_accuracy: data.accuracy,
+    p_university: data.university,
+  });
 
   if (error) {
     throw error;
