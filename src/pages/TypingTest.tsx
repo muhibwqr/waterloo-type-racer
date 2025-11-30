@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { saveTypingTestScore } from "@/lib/api";
 import { toast } from "sonner";
 import CommandPalette from "@/components/CommandPalette";
 import { TrendingUp, Target, Clock, Zap, Trophy } from "lucide-react";
@@ -636,16 +636,7 @@ const TypingTest = () => {
 
       console.log("Inserting test data:", insertData);
 
-      const { data: insertedData, error } = await supabase
-        .from("typing_tests_seed")
-        .insert(insertData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Supabase insert error:", error);
-        throw error;
-      }
+      const insertedData = await saveTypingTestScore(insertData);
 
       console.log("Successfully inserted test:", insertedData);
 
