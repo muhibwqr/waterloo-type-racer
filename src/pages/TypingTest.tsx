@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { saveTypingTestScore } from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import CommandPalette from "@/components/CommandPalette";
 import { TrendingUp, Target, Clock, Zap, Trophy } from "lucide-react";
@@ -260,64 +260,50 @@ const TypingTest = () => {
 
   const timeOptions = useMemo(() => [15, 30, 60], []);
 
-  const computeStats = useCallback(
-    (text: string, promptText: string, startedAt: number | null, mistakes: number = 0): Stats => {
-      const totalChars = text.length;
-      let correctChars = 0;
-      let incorrectChars = 0;
+  const computeStats = useCallback((text: string, promptText: string, startedAt: number | null, mistakes: number = 0): Stats => {
+    const totalChars = text.length;
+    let correctChars = 0;
+    let incorrectChars = 0;
 
-      // Compare character by character up to the length of typed text
-      // For infinite prompt, compare against what's been typed
-      const compareLength = Math.min(text.length, promptText.length);
-      
-      for (let index = 0; index < compareLength; index += 1) {
-        if (text[index] === promptText[index]) {
-          correctChars += 1;
-        } else {
-          incorrectChars += 1;
-        }
+    // Compare character by character up to the length of typed text
+    // For infinite prompt, compare against what's been typed
+    const compareLength = Math.min(text.length, promptText.length);
+    
+    for (let index = 0; index < compareLength; index += 1) {
+      if (text[index] === promptText[index]) {
+        correctChars += 1;
+      } else {
+        incorrectChars += 1;
       }
-      
-      // If typed text is longer than prompt, count extra characters as incorrect
-      if (text.length > promptText.length) {
-        incorrectChars += (text.length - promptText.length);
-      }
+    }
+    
+    // If typed text is longer than prompt, count extra characters as incorrect
+    if (text.length > promptText.length) {
+      incorrectChars += (text.length - promptText.length);
+    }
 
-      const words = text.trim().length > 0 ? text.trim().split(/\s+/).length : 0;
-      const now = Date.now();
-      const elapsedMs = startedAt ? Math.max(now - startedAt, 0) : 0;
-      const elapsedMinutes = elapsedMs > 0 ? elapsedMs / 60000 : 0;
+    const words = text.trim().length > 0 ? text.trim().split(/\s+/).length : 0;
+    const now = Date.now();
+    const elapsedMs = startedAt ? Math.max(now - startedAt, 0) : 0;
+    const elapsedMinutes = elapsedMs > 0 ? elapsedMs / 60000 : 0;
+    const wpm = elapsedMinutes > 0 && words > 0 ? Math.round(words / elapsedMinutes) : 0;
+    
+    // Calculate accuracy: correct chars / (correct + incorrect + mistakes from corrections)
+    // Mistakes include characters that were typed wrong and then corrected
+    const totalCharsTyped = correctChars + incorrectChars + mistakes;
+    const accuracy = totalCharsTyped > 0 
+      ? (correctChars / totalCharsTyped) * 100 
+      : 100;
 
-      // Guard against extremely short elapsed times causing absurd WPM values
-      // Require at least 2 seconds elapsed AND at least 3 words typed for a valid WPM calculation
-      // This prevents cases where typing just one letter in a short time gives absurdly high WPM
-      let wpm = 0;
-      const MIN_ELAPSED_MS = 2000; // At least 2 seconds
-      const MIN_WORDS = 3; // At least 3 words for meaningful WPM calculation
-      if (elapsedMs >= MIN_ELAPSED_MS && elapsedMinutes > 0 && words >= MIN_WORDS) {
-        wpm = Math.round(words / elapsedMinutes);
-        // Additional safety: cap WPM at 300 to prevent any calculation errors
-        wpm = Math.min(wpm, 300);
-      }
-      
-      // Calculate accuracy: correct chars / (correct + incorrect + mistakes from corrections)
-      // Mistakes include characters that were typed wrong and then corrected
-      const totalCharsTyped = correctChars + incorrectChars + mistakes;
-      const accuracy = totalCharsTyped > 0 
-        ? (correctChars / totalCharsTyped) * 100 
-        : 100;
-
-      return {
-        wpm,
-        accuracy: Number(accuracy.toFixed(1)),
-        correctChars,
-        totalChars,
-        words,
-        elapsedMs,
-      };
-    },
-    [],
-  );
+    return {
+      wpm,
+      accuracy: Number(accuracy.toFixed(1)),
+      correctChars,
+      totalChars,
+      words,
+      elapsedMs,
+    };
+  }, []);
 
   const finishTest = useCallback(
     (reason: "time" | "manual", finalText?: string) => {
@@ -601,13 +587,6 @@ const TypingTest = () => {
       return;
     }
 
-    // Reject tests with unrealistically high WPM (likely calculation error from very short typing)
-    // World record is around 216 WPM, so anything above 300 is likely invalid
-    if (wpm > 300) {
-      toast.error("Test rejected: WPM too high to be valid. Please complete a full test.");
-      return;
-    }
-
     // Reject tests with WPM above 150 AND accuracy below 10% (likely spam/random typing)
     if (wpm > 150 && accuracy < 10) {
       toast.error("Test rejected: High speed with very low accuracy suggests invalid test.");
@@ -618,7 +597,19 @@ const TypingTest = () => {
 
     try {
       // Generate UUID for anonymous users if needed
-      const userId = user?.id ?? crypto.randomUUID();
+      let userId = user?.id;
+      if (!userId) {
+        try {
+          userId = crypto.randomUUID();
+        } catch (e) {
+          // Fallback for environments where crypto.randomUUID is not available
+          userId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+          });
+        }
+      }
 
       // Prepare the data to insert
       const insertData = {
@@ -636,7 +627,16 @@ const TypingTest = () => {
 
       console.log("Inserting test data:", insertData);
 
-      const insertedData = await saveTypingTestScore(insertData);
+      const { data: insertedData, error } = await supabase
+        .from("typing_tests_seed")
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase insert error:", error);
+        throw error;
+      }
 
       console.log("Successfully inserted test:", insertedData);
 
@@ -645,9 +645,12 @@ const TypingTest = () => {
       toast.success(`Score uploaded to ${selectedUniversity}! Nice typing.`);
     } catch (uploadError) {
       console.error("Failed to upload score", uploadError);
-      const errorMessage = uploadError instanceof Error 
-        ? uploadError.message 
-        : "We couldn't upload your score. Please try again.";
+      const errorMessage = 
+        uploadError instanceof Error 
+          ? uploadError.message 
+          : typeof uploadError === 'object' && uploadError !== null && 'message' in uploadError
+            ? (uploadError as any).message
+            : "We couldn't upload your score. Please try again.";
       toast.error(errorMessage);
     } finally {
       setIsSaving(false);
@@ -766,7 +769,7 @@ const TypingTest = () => {
             // Test Results - Statistics
             <Card className="bg-card/80 backdrop-blur-sm border-border">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center justify-center gap-2">
                   Test Results
                 </CardTitle>
               </CardHeader>
@@ -822,7 +825,7 @@ const TypingTest = () => {
                 {/* Performance Graph */}
                 {timeSeriesData.length > 0 && (
                   <div className="bg-secondary/20 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-6 text-foreground">Performance Over Time</h3>
+                    <h3 className="text-lg font-semibold mb-6 text-foreground text-center">Performance Over Time</h3>
                     <div className="w-full" style={{ minHeight: '350px' }}>
                       <ResponsiveContainer width="100%" height={350}>
                         <LineChart 
@@ -983,9 +986,9 @@ const TypingTest = () => {
                     >
                       Finish Test
                     </Button>
-            )}
-          </div>
-          </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
